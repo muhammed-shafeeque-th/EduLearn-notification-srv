@@ -1,0 +1,89 @@
+
+<!DOCTYPE html>
+	<html>
+	
+	<head>
+		<meta charset="UTF-8">
+		<title>OTP Verification Email</title>
+		<style>
+			body {
+				background-color: #ffffff;
+				font-family: Arial, sans-serif;
+				font-size: 16px;
+				line-height: 1.4;
+				color: #333333;
+				margin: 0;
+				padding: 0;
+			}
+	
+			.container {
+				max-width: 600px;
+				margin: 0 auto;
+				padding: 20px;
+				text-align: center;
+			}
+	
+			.logo {
+				max-width: 200px;
+				margin-bottom: 20px;
+			}
+	
+			.message {
+				font-size: 18px;
+				font-weight: bold;
+				margin-bottom: 20px;
+			}
+	
+			.body {
+				font-size: 16px;
+				margin-bottom: 20px;
+			}
+	
+			.cta {
+				display: inline-block;
+				padding: 10px 20px;
+				background-color: #FFD60A;
+				color: #000000;
+				text-decoration: none;
+				border-radius: 5px;
+				font-size: 16px;
+				font-weight: bold;
+				margin-top: 20px;
+			}
+	
+			.support {
+				font-size: 14px;
+				color: #999999;
+				margin-top: 20px;
+			}
+	
+			.highlight {
+				font-weight: bold;
+			}
+		</style>
+	
+	</head>
+	
+	<body>
+		<div class="container">
+			<a href="http://localhost:3000/api/v1"><img class="logo"
+					src="data:image/png;base64,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" alt="EduLearn Logo"></a>
+			<div class="message">OTP Verification Email</div>
+			<div class="body">
+				<p>Dear {{USER_NAME}}</p>
+				<p>Thank you for registering with EduLearn ©. To complete your registration, please use the following OTP
+					(One-Time Password) to verify your account:</p>
+				<h2 class="highlight"> {{CODE}}</h2>
+				<p>This OTP is valid for {{EXPIRY_TIME}} minutes. If you did not request this verification, please disregard this email.
+				Once your account is verified, you will have access to our Website and its features.</p>
+			</div>
+			<div class="support">If you have any questions or need assistance, please feel free to reach out to us at <a
+					href="mailto:shafeeqsha06@gmail.com">EduLearn Officails</a>. We are here to help!</div>
+		</div>
+	</body>
+	
+	</html>;
+
+
+
+

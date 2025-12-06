@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>Reset Your EduLearn Password</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
+    <style>
+        /* Reset and base styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+            background-color: #f8fafc;
+            margin: 0;
+            padding: 0;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        /* Container and layout */
+        .email-wrapper {
+            width: 100%;
+            background-color: #f8fafc;
+            padding: 20px 0;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+        }
+
+        /* Header */
+        .email-header {
+            background: linear-gradient(135deg, #4a5568 0%, #2d3748 100%);
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .logo {
+            max-width: 180px;
+            height: auto;
+            margin-bottom: 20px;
+            border-radius: 8px;
+        }
+
+        .header-title {
+            color: #ffffff;
+            font-size: 28px;
+            font-weight: 700;
+            margin: 0;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .header-subtitle {
+            color: #cbd5e0;
+            font-size: 16px;
+            margin: 8px 0 0 0;
+            font-weight: 400;
+        }
+
+        /* Content */
+        .email-content {
+            padding: 40px 30px;
+        }
+
+        .greeting {
+            font-size: 18px;
+            color: #2d3748;
+            margin-bottom: 24px;
+            font-weight: 500;
+        }
+
+        .message-text {
+            font-size: 16px;
+            color: #4a5568;
+            margin-bottom: 24px;
+            line-height: 1.7;
+        }
+
+        /* Reset Button Section */
+        .reset-section {
+            text-align: center;
+            margin: 32px 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .reset-button {
+            display: inline-block;
+            background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+            color: #ffffff !important;
+            text-decoration: none;
+            font-size: 18px;
+            font-weight: 600;
+            padding: 16px 32px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(49, 130, 206, 0.3);
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .reset-button:hover {
+            background: linear-gradient(135deg, #2c5282 0%, #2a4365 100%);
+            box-shadow: 0 6px 20px rgba(49, 130, 206, 0.4);
+            transform: translateY(-2px);
+        }
+
+        .button-validity {
+            font-size: 14px;
+            color: #3182ce;
+            margin-top: 16px;
+            font-weight: 500;
+        }
+
+        /* Alternative Reset Option */
+        .alternative-section {
+            background-color: #ebf8ff;
+            border-left: 4px solid #3182ce;
+            padding: 20px;
+            margin: 24px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .alternative-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c5282;
+            margin-bottom: 8px;
+        }
+
+        .alternative-text {
+            font-size: 14px;
+            color: #2c5282;
+            line-height: 1.6;
+            margin-bottom: 12px;
+        }
+
+        .reset-link {
+            word-break: break-all;
+            color: #3182ce;
+            text-decoration: none;
+            font-size: 14px;
+            padding: 8px 12px;
+            background-color: #ffffff;
+            border: 1px solid #cbd5e0;
+            border-radius: 6px;
+            display: inline-block;
+            margin-top: 8px;
+        }
+
+        .reset-link:hover {
+            background-color: #f7fafc;
+        }
+
+        /* Security notice */
+        .security-notice {
+            background-color: #f7fafc;
+            border: 1px solid #cbd5e0;
+            border-left: 4px solid #4a5568;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 24px 0;
+        }
+
+        .security-notice-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+        }
+
+        .security-notice-text {
+            font-size: 14px;
+            color: #4a5568;
+            line-height: 1.6;
+        }
+
+        /* Footer */
+        .email-footer {
+            background-color: #f7fafc;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .support-text {
+            font-size: 14px;
+            color: #718096;
+            margin-bottom: 16px;
+        }
+
+        .support-link {
+            color: #3182ce;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .support-link:hover {
+            text-decoration: underline;
+        }
+
+        .company-info {
+            font-size: 12px;
+            color: #a0aec0;
+            margin-top: 20px;
+            line-height: 1.5;
+        }
+
+        /* Responsive design */
+        @media screen and (max-width: 600px) {
+            .email-wrapper {
+                padding: 10px;
+            }
+
+            .email-header,
+            .email-content,
+            .email-footer {
+                padding: 20px;
+            }
+
+            .header-title {
+                font-size: 24px;
+            }
+
+            .reset-section {
+                padding: 20px;
+            }
+
+            .reset-button {
+                font-size: 16px;
+                padding: 14px 24px;
+            }
+        }
+
+        /* Dark mode support */
+        @media (prefers-color-scheme: dark) {
+            .email-container {
+                background-color: #1a202c;
+                color: #e2e8f0;
+            }
+
+            .message-text {
+                color: #cbd5e0;
+            }
+
+            .greeting {
+                color: #f7fafc;
+            }
+
+            .email-footer {
+                background-color: #2d3748;
+                border-top-color: #4a5568;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <!-- Header -->
+            <div class="email-header">
+                <img class="logo" src="https://via.placeholder.com/180x60/4a5568/ffffff?text=EduLearn" alt="EduLearn Logo">
+                <h1 class="header-title">Password Reset</h1>
+                <p class="header-subtitle">Secure Access Recovery</p>
+            </div>
+
+            <!-- Content -->
+            <div class="email-content">
+                <div class="greeting">Hello {{USER_NAME}},</div>
+                
+                <div class="message-text">
+                    We received a request to reset the password for your <strong>EduLearn</strong> account. Don't worry, it happens to the best of us! You can securely reset your password using the button below.
+                </div>
+
+                <!-- Reset Button Section -->
+                <div class="reset-section">
+                    <a href="{{RESET_LINK}}" class="reset-button">🔐 Reset My Password</a>
+                    <div class="button-validity">⏰ This link expires in {{EXPIRY_TIME}} minutes</div>
+                </div>
+
+                <div class="message-text">
+                    Once you click the button above, you'll be taken to a secure page where you can create a new password for your account. Choose a strong password to keep your learning progress safe!
+                </div>
+
+                <!-- Alternative Reset Option -->
+                <div class="alternative-section">
+                    <div class="alternative-title">🔗 Can't click the button?</div>
+                    <div class="alternative-text">
+                        Copy and paste this link into your browser's address bar:
+                    </div>
+                    <a href="{{RESET_LINK}}" class="reset-link">{{RESET_LINK}}</a>
+                </div>
+
+                <!-- Security Notice -->
+                <div class="security-notice">
+                    <div class="security-notice-title">🛡️ Security Information</div>
+                    <div class="security-notice-text">
+                        • <strong>Didn't request this?</strong> If you didn't request a password reset, you can safely ignore this email. Your account remains secure.<br><br>
+                        • <strong>Keep it secure:</strong> Never share your reset link with anyone. EduLearn will never ask for your password via email.<br><br>
+                        • <strong>Act quickly:</strong> This reset link will expire in {{EXPIRY_TIME}} minutes for your security.
+                    </div>
+                </div>
+
+                <div class="message-text">
+                    Thank you for being part of the EduLearn community. We're here to support your learning journey every step of the way!
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="email-footer">
+                <div class="support-text">
+                    Having trouble with password reset? We're here to help!<br>
+                    Contact our support team at <a href="mailto:support@edulearn.com" class="support-link">support@edulearn.com</a>
+                </div>
+                
+                <div class="company-info">
+                    © 2024 EduLearn. All rights reserved.<br>
+                    Empowering minds through innovative learning experiences.<br>
+                    <a href="{{UNSUBSCRIBE_LINK}}" style="color: #a0aec0; text-decoration: none;">Unsubscribe</a> | 
+                    <a href="{{PRIVACY_POLICY_LINK}}" style="color: #a0aec0; text-decoration: none;">Privacy Policy</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
