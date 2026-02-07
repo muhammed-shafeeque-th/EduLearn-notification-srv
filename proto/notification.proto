@@ -22,8 +22,10 @@ service NotificationService {
     rpc SendOTP(OTPRequest) returns (NotificationResponse);
     rpc VerifyOTP(VerifyOTPRequest) returns (NotificationResponse);
     rpc ForgotPassword(ForgotPasswordRequest) returns (NotificationResponse);
-    rpc GetANotification(GetNotificationRequest) returns (GetNotificationResponse);
-    rpc GetAllNotifications(GetAllNotificationsRequest) returns (GetAllNotificationsResponse);
+    rpc GetNotification(GetNotificationRequest) returns (GetNotificationResponse);
+    rpc DeleteNotification(DeleteNotificationRequest) returns (DeleteNotificationResponse);
+    rpc ClearUserNotifications(ClearUserNotificationsRequest) returns (ClearUserNotificationsResponse);
+    rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse);
     rpc MarkAsRead(MarkNotificationRequest) returns (NotificationResponse);
     rpc MarkAllAsRead(MarkAllNotificationsRequest) returns (NotificationResponse);
 }
@@ -51,13 +53,26 @@ message GetNotificationRequest {
     string notification_id = 1;
     string user_id = 2;
 }
+message DeleteNotificationRequest {
+    string notification_id = 1;
+    string user_id = 2;
+}
+message ClearUserNotificationsRequest {
+    string user_id = 2;
+}
 
-message GetAllNotificationsRequest {
-    string user_id = 1;
-    int32 page = 2;
+message NotificationParams {
+     int32 page = 2;
     int32 page_size = 3;
     bool is_read = 4; // Filter by read status
-    string type = 5;  // Filter by notification type
+    string category = 5;  // Filter by notification type
+
+}
+
+message GetNotificationsRequest {
+    string user_id = 1;
+    NotificationParams params = 2;
+   
 }
 
 message MarkNotificationRequest {
@@ -93,7 +108,7 @@ message NotificationData {
     string created_at = 8;
     string priority = 9;
     string action_url = 10;
-    string notification_type = 11;
+    string category = 11;
     map<string, string> metadata = 12;
 }
 
@@ -103,8 +118,24 @@ message GetNotificationResponse {
         Error error = 2;
     }
 }
+message DeleteNotificationResponse {
+    oneof result {
+        DeleteSuccess success = 1;
+        Error error = 2;
+    }
+}
+message ClearUserNotificationsResponse {
+    oneof result {
+        DeleteSuccess success = 1;
+        Error error = 2;
+    }
+}
 
-message GetAllNotificationsResponse {
+message DeleteSuccess {
+    bool success = 1; 
+}
+
+message GetNotificationsResponse {
     oneof result {
         GetAllNotificationsSuccess success = 1;
         Error error = 2;
@@ -114,6 +145,4 @@ message GetAllNotificationsResponse {
 message GetAllNotificationsSuccess {
     repeated NotificationData notifications = 1;
     int32 total = 2;
-    int32 page = 3;
-    int32 page_size = 4;
 }

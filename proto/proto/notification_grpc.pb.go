@@ -19,13 +19,15 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	NotificationService_SendOTP_FullMethodName             = "/notification.NotificationService/SendOTP"
-	NotificationService_VerifyOTP_FullMethodName           = "/notification.NotificationService/VerifyOTP"
-	NotificationService_ForgotPassword_FullMethodName      = "/notification.NotificationService/ForgotPassword"
-	NotificationService_GetANotification_FullMethodName    = "/notification.NotificationService/GetANotification"
-	NotificationService_GetAllNotifications_FullMethodName = "/notification.NotificationService/GetAllNotifications"
-	NotificationService_MarkAsRead_FullMethodName          = "/notification.NotificationService/MarkAsRead"
-	NotificationService_MarkAllAsRead_FullMethodName       = "/notification.NotificationService/MarkAllAsRead"
+	NotificationService_SendOTP_FullMethodName                = "/notification.NotificationService/SendOTP"
+	NotificationService_VerifyOTP_FullMethodName              = "/notification.NotificationService/VerifyOTP"
+	NotificationService_ForgotPassword_FullMethodName         = "/notification.NotificationService/ForgotPassword"
+	NotificationService_GetNotification_FullMethodName        = "/notification.NotificationService/GetNotification"
+	NotificationService_DeleteNotification_FullMethodName     = "/notification.NotificationService/DeleteNotification"
+	NotificationService_ClearUserNotifications_FullMethodName = "/notification.NotificationService/ClearUserNotifications"
+	NotificationService_GetNotifications_FullMethodName       = "/notification.NotificationService/GetNotifications"
+	NotificationService_MarkAsRead_FullMethodName             = "/notification.NotificationService/MarkAsRead"
+	NotificationService_MarkAllAsRead_FullMethodName          = "/notification.NotificationService/MarkAllAsRead"
 )
 
 // NotificationServiceClient is the client API for NotificationService service.
@@ -35,8 +37,10 @@ type NotificationServiceClient interface {
 	SendOTP(ctx context.Context, in *OTPRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
 	VerifyOTP(ctx context.Context, in *VerifyOTPRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
 	ForgotPassword(ctx context.Context, in *ForgotPasswordRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
-	GetANotification(ctx context.Context, in *GetNotificationRequest, opts ...grpc.CallOption) (*GetNotificationResponse, error)
-	GetAllNotifications(ctx context.Context, in *GetAllNotificationsRequest, opts ...grpc.CallOption) (*GetAllNotificationsResponse, error)
+	GetNotification(ctx context.Context, in *GetNotificationRequest, opts ...grpc.CallOption) (*GetNotificationResponse, error)
+	DeleteNotification(ctx context.Context, in *DeleteNotificationRequest, opts ...grpc.CallOption) (*DeleteNotificationResponse, error)
+	ClearUserNotifications(ctx context.Context, in *ClearUserNotificationsRequest, opts ...grpc.CallOption) (*ClearUserNotificationsResponse, error)
+	GetNotifications(ctx context.Context, in *GetNotificationsRequest, opts ...grpc.CallOption) (*GetNotificationsResponse, error)
 	MarkAsRead(ctx context.Context, in *MarkNotificationRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
 	MarkAllAsRead(ctx context.Context, in *MarkAllNotificationsRequest, opts ...grpc.CallOption) (*NotificationResponse, error)
 }
@@ -79,20 +83,40 @@ func (c *notificationServiceClient) ForgotPassword(ctx context.Context, in *Forg
 	return out, nil
 }
 
-func (c *notificationServiceClient) GetANotification(ctx context.Context, in *GetNotificationRequest, opts ...grpc.CallOption) (*GetNotificationResponse, error) {
+func (c *notificationServiceClient) GetNotification(ctx context.Context, in *GetNotificationRequest, opts ...grpc.CallOption) (*GetNotificationResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
 	out := new(GetNotificationResponse)
-	err := c.cc.Invoke(ctx, NotificationService_GetANotification_FullMethodName, in, out, cOpts...)
+	err := c.cc.Invoke(ctx, NotificationService_GetNotification_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *notificationServiceClient) GetAllNotifications(ctx context.Context, in *GetAllNotificationsRequest, opts ...grpc.CallOption) (*GetAllNotificationsResponse, error) {
+func (c *notificationServiceClient) DeleteNotification(ctx context.Context, in *DeleteNotificationRequest, opts ...grpc.CallOption) (*DeleteNotificationResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(GetAllNotificationsResponse)
-	err := c.cc.Invoke(ctx, NotificationService_GetAllNotifications_FullMethodName, in, out, cOpts...)
+	out := new(DeleteNotificationResponse)
+	err := c.cc.Invoke(ctx, NotificationService_DeleteNotification_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) ClearUserNotifications(ctx context.Context, in *ClearUserNotificationsRequest, opts ...grpc.CallOption) (*ClearUserNotificationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClearUserNotificationsResponse)
+	err := c.cc.Invoke(ctx, NotificationService_ClearUserNotifications_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *notificationServiceClient) GetNotifications(ctx context.Context, in *GetNotificationsRequest, opts ...grpc.CallOption) (*GetNotificationsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetNotificationsResponse)
+	err := c.cc.Invoke(ctx, NotificationService_GetNotifications_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -126,8 +150,10 @@ type NotificationServiceServer interface {
 	SendOTP(context.Context, *OTPRequest) (*NotificationResponse, error)
 	VerifyOTP(context.Context, *VerifyOTPRequest) (*NotificationResponse, error)
 	ForgotPassword(context.Context, *ForgotPasswordRequest) (*NotificationResponse, error)
-	GetANotification(context.Context, *GetNotificationRequest) (*GetNotificationResponse, error)
-	GetAllNotifications(context.Context, *GetAllNotificationsRequest) (*GetAllNotificationsResponse, error)
+	GetNotification(context.Context, *GetNotificationRequest) (*GetNotificationResponse, error)
+	DeleteNotification(context.Context, *DeleteNotificationRequest) (*DeleteNotificationResponse, error)
+	ClearUserNotifications(context.Context, *ClearUserNotificationsRequest) (*ClearUserNotificationsResponse, error)
+	GetNotifications(context.Context, *GetNotificationsRequest) (*GetNotificationsResponse, error)
 	MarkAsRead(context.Context, *MarkNotificationRequest) (*NotificationResponse, error)
 	MarkAllAsRead(context.Context, *MarkAllNotificationsRequest) (*NotificationResponse, error)
 	mustEmbedUnimplementedNotificationServiceServer()
@@ -149,11 +175,17 @@ func (UnimplementedNotificationServiceServer) VerifyOTP(context.Context, *Verify
 func (UnimplementedNotificationServiceServer) ForgotPassword(context.Context, *ForgotPasswordRequest) (*NotificationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ForgotPassword not implemented")
 }
-func (UnimplementedNotificationServiceServer) GetANotification(context.Context, *GetNotificationRequest) (*GetNotificationResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetANotification not implemented")
+func (UnimplementedNotificationServiceServer) GetNotification(context.Context, *GetNotificationRequest) (*GetNotificationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNotification not implemented")
 }
-func (UnimplementedNotificationServiceServer) GetAllNotifications(context.Context, *GetAllNotificationsRequest) (*GetAllNotificationsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetAllNotifications not implemented")
+func (UnimplementedNotificationServiceServer) DeleteNotification(context.Context, *DeleteNotificationRequest) (*DeleteNotificationResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DeleteNotification not implemented")
+}
+func (UnimplementedNotificationServiceServer) ClearUserNotifications(context.Context, *ClearUserNotificationsRequest) (*ClearUserNotificationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ClearUserNotifications not implemented")
+}
+func (UnimplementedNotificationServiceServer) GetNotifications(context.Context, *GetNotificationsRequest) (*GetNotificationsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetNotifications not implemented")
 }
 func (UnimplementedNotificationServiceServer) MarkAsRead(context.Context, *MarkNotificationRequest) (*NotificationResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method MarkAsRead not implemented")
@@ -236,38 +268,74 @@ func _NotificationService_ForgotPassword_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NotificationService_GetANotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+func _NotificationService_GetNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(GetNotificationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NotificationServiceServer).GetANotification(ctx, in)
+		return srv.(NotificationServiceServer).GetNotification(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NotificationService_GetANotification_FullMethodName,
+		FullMethod: NotificationService_GetNotification_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NotificationServiceServer).GetANotification(ctx, req.(*GetNotificationRequest))
+		return srv.(NotificationServiceServer).GetNotification(ctx, req.(*GetNotificationRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _NotificationService_GetAllNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(GetAllNotificationsRequest)
+func _NotificationService_DeleteNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DeleteNotificationRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(NotificationServiceServer).GetAllNotifications(ctx, in)
+		return srv.(NotificationServiceServer).DeleteNotification(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: NotificationService_GetAllNotifications_FullMethodName,
+		FullMethod: NotificationService_DeleteNotification_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(NotificationServiceServer).GetAllNotifications(ctx, req.(*GetAllNotificationsRequest))
+		return srv.(NotificationServiceServer).DeleteNotification(ctx, req.(*DeleteNotificationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_ClearUserNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClearUserNotificationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).ClearUserNotifications(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_ClearUserNotifications_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).ClearUserNotifications(ctx, req.(*ClearUserNotificationsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _NotificationService_GetNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNotificationsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NotificationServiceServer).GetNotifications(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: NotificationService_GetNotifications_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NotificationServiceServer).GetNotifications(ctx, req.(*GetNotificationsRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -328,12 +396,20 @@ var NotificationService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _NotificationService_ForgotPassword_Handler,
 		},
 		{
-			MethodName: "GetANotification",
-			Handler:    _NotificationService_GetANotification_Handler,
+			MethodName: "GetNotification",
+			Handler:    _NotificationService_GetNotification_Handler,
 		},
 		{
-			MethodName: "GetAllNotifications",
-			Handler:    _NotificationService_GetAllNotifications_Handler,
+			MethodName: "DeleteNotification",
+			Handler:    _NotificationService_DeleteNotification_Handler,
+		},
+		{
+			MethodName: "ClearUserNotifications",
+			Handler:    _NotificationService_ClearUserNotifications_Handler,
+		},
+		{
+			MethodName: "GetNotifications",
+			Handler:    _NotificationService_GetNotifications_Handler,
 		},
 		{
 			MethodName: "MarkAsRead",
