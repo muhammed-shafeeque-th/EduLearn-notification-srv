@@ -50,22 +50,22 @@ func (o OTP) IsExpired(now time.Time) bool {
 }
 
 
-// IsValid checks if OTP is still valid
+// checks if OTP is still valid
 func (o *OTP) IsValid() bool {
 	return time.Now().UTC().Before(o.ExpiresAt)
 }
 
-// IncrementAttempts increases attempt counter
+// increases attempt counter
 func (o *OTP) IncrementAttempts() {
 	o.Attempts++
 }
 
-// CanAttempt checks if more attempts are allowed
+// checks if more attempts are allowed
 func (o *OTP) CanAttempt() bool {
 	return o.Attempts < MaxOTPAttempts
 }
 
-// Verify checks if provided code matches
+// checks if provided code matches
 func (o *OTP) Verify(code string) error {
 
 	if o.Code != code {
@@ -87,8 +87,7 @@ func (o *OTP) Verify(code string) error {
 	return nil
 }
 
-// GenerateOTP generates a 6-digit numeric OTP.
-// randReader is injectable for testability (can pass rand.Reader in prod).
+// generates a 6-digit numeric OTP.
 func GenerateOTP(randReader io.Reader) (string, error) {
 	const otpLength = 6
 	const digits = "0123456789"
@@ -122,7 +121,6 @@ func GenerateOTP(randReader io.Reader) (string, error) {
 	return string(code), nil
 }
 
-// Convenience wrapper for production.
 func GenerateDefaultOTP() (string, error) {
 	return GenerateOTP(rand.Reader)
 }
