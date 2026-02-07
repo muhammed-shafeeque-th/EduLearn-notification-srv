@@ -12,8 +12,6 @@ import (
 	"go.uber.org/zap"
 )
 
-// ForgotPasswordEventHandler handles forgot password flow such as sending reset emails.
-// notificationRepo is used for idempotency tracking.
 type ForgotPasswordEventHandler struct {
 	renderer         ports.TemplateRenderer
 	notificationRepo repository.NotificationRepository
@@ -22,7 +20,6 @@ type ForgotPasswordEventHandler struct {
 	logger           *zap.Logger
 }
 
-// NewForgotPasswordEventHandler constructs a new instance of ForgotPasswordEventHandler using dependency injection.
 func NewForgotPasswordEventHandler(
 	renderer ports.TemplateRenderer,
 	notificationRepo repository.NotificationRepository,
@@ -41,7 +38,6 @@ func NewForgotPasswordEventHandler(
 
 // Handle processes a forgot password event message by validating, rendering, and emailing reset instructions.
 func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte) error {
-	// Try to unmarshal into ForgotPasswordRequestEvent
 	var event domain_events.ForgotPasswordRequestEvent
 	if err := json.Unmarshal(message, &event); err != nil {
 		s.logger.Error("Failed to unmarshal ForgotPasswordRequestEvent", zap.Error(err))
@@ -49,7 +45,7 @@ func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte)
 	}
 
 	// Validate event fields
-	if err := event.Validate(); err != nil {
+	if err := event.Payload.Validate(); err != nil {
 		s.logger.Error("Invalid forgot-password-request event", zap.Error(err))
 		return fmt.Errorf("validation failed: %w", err)
 	}
@@ -69,30 +65,32 @@ func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte)
 		}
 	}
 
+	payload := event.Payload
+
 	// Render email template
 	body, err := s.renderer.Render("forgot-mail.html", map[string]string{
-		"RESET_LINK":  event.ResetLink,
-		"USER_NAME":   event.Username,
-		"EXPIRY_TIME": fmt.Sprintf("%d minutes", event.Expiry),
+		"RESET_LINK":  payload.ResetLink,
+		"USER_NAME":   payload.Username,
+		"EXPIRY_TIME": fmt.Sprintf("%d minutes", payload.Expiry),
 	})
 	if err != nil {
-		s.logger.Error("Failed to render forgot-password template", zap.String("username", event.Username), zap.Error(err))
+		s.logger.Error("Failed to render forgot-password template", zap.String("username", payload.Username), zap.Error(err))
 		return fmt.Errorf("failed to render forgot password email template: %w", err)
 	}
 
 	notification := &entity.Notification{
-		ID:        event.EventID, // Use event.EventID for deduplication/idempotency
-		UserId:    event.UserID,
+		ID:        event.EventID, // Use payload.EventID for deduplication/idempotency
+		UserId:    payload.UserID,
 		Type:      entity.EmailNotification,
 		Subject:   "Password Reset Request",
 		Body:      body,
-		Recipient: event.Email,
+		Recipient: payload.Email,
 	}
 
 	// Send email
 	if err := s.emailSender.Send(ctx, notification); err != nil {
 		s.logger.Error("Failed to send forgot password email",
-			zap.String("email", event.Email),
+			zap.String("email", payload.Email),
 			zap.Error(err),
 		)
 		return fmt.Errorf("failed to send forgot password email: %w", err)
@@ -107,8 +105,8 @@ func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte)
 	}
 
 	s.logger.Info("Forgot password email sent successfully",
-		zap.String("userId", event.UserID),
-		zap.String("email", event.Email),
+		zap.String("userId", payload.UserID),
+		zap.String("email", payload.Email),
 		zap.String("notification_id", event.EventID),
 	)
 
