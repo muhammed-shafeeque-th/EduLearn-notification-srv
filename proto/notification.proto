@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package notification;
+
+option go_package = "./internal/proto";
+
+// import "validate/validate.proto";
+
+// Structured error message
+message Error {
+    string code = 1; // e.g., "RESOURCE_NOT_FOUND", "INVALID_ARGUMENT", "UNAUTHENTICATED"
+    string message = 2;
+    repeated ErrorDetail details = 3; // Optional detailed error information
+}
+
+message ErrorDetail {
+    string field = 1;
+    string message = 2;
+}
+
+service NotificationService {
+    rpc SendOTP(OTPRequest) returns (NotificationResponse);
+    rpc VerifyOTP(VerifyOTPRequest) returns (NotificationResponse);
+    rpc ForgotPassword(ForgotPasswordRequest) returns (NotificationResponse);
+    rpc GetNotification(GetNotificationRequest) returns (GetNotificationResponse);
+    rpc DeleteNotification(DeleteNotificationRequest) returns (DeleteNotificationResponse);
+    rpc ClearUserNotifications(ClearUserNotificationsRequest) returns (ClearUserNotificationsResponse);
+    rpc GetNotifications(GetNotificationsRequest) returns (GetNotificationsResponse);
+    rpc MarkAsRead(MarkNotificationRequest) returns (NotificationResponse);
+    rpc MarkAllAsRead(MarkAllNotificationsRequest) returns (NotificationResponse);
+}
+
+message VerifyOTPRequest {
+    string email = 2;   // Email address
+    string otp = 3;     // OTP code to verify
+}
+
+message ForgotPasswordRequest {
+    string username = 1; // User ID
+    string userId = 5; // User ID
+    string email = 2;   // Email address
+    string resetLink = 3; // Password reset link,
+    // int32 expires = 4;
+}
+
+message OTPRequest {
+    string user_id = 1;
+    string email = 2;
+    string username = 3;
+}
+
+message GetNotificationRequest {
+    string notification_id = 1;
+    string user_id = 2;
+}
+message DeleteNotificationRequest {
+    string notification_id = 1;
+    string user_id = 2;
+}
+message ClearUserNotificationsRequest {
+    string user_id = 2;
+}
+
+message NotificationParams {
+     int32 page = 2;
+    int32 page_size = 3;
+    bool is_read = 4; // Filter by read status
+    string category = 5;  // Filter by notification type
+
+}
+
+message GetNotificationsRequest {
+    string user_id = 1;
+    NotificationParams params = 2;
+   
+}
+
+message MarkNotificationRequest {
+    string notification_id = 1;
+    string user_id = 2;
+}
+
+message MarkAllNotificationsRequest {
+    string user_id = 1;
+}
+
+// Updated response messages with oneof for error handling
+message NotificationResponse {
+    oneof result {
+        NotificationSuccess success = 1;
+        Error error = 2;
+    }
+}
+
+message NotificationSuccess {
+    bool success = 1;
+    string message = 2;
+}
+
+message NotificationData {
+    string id = 1;
+    string type = 3;
+    string user_id = 2;
+    string subject = 4;
+    string body = 5;
+    string recipient = 6;
+    bool is_read = 7;
+    string created_at = 8;
+    string priority = 9;
+    string action_url = 10;
+    string category = 11;
+    map<string, string> metadata = 12;
+}
+
+message GetNotificationResponse {
+    oneof result {
+        NotificationData notification = 1;
+        Error error = 2;
+    }
+}
+message DeleteNotificationResponse {
+    oneof result {
+        DeleteSuccess success = 1;
+        Error error = 2;
+    }
+}
+message ClearUserNotificationsResponse {
+    oneof result {
+        DeleteSuccess success = 1;
+        Error error = 2;
+    }
+}
+
+message DeleteSuccess {
+    bool success = 1; 
+}
+
+message GetNotificationsResponse {
+    oneof result {
+        GetAllNotificationsSuccess success = 1;
+        Error error = 2;
+    }
+}
+
+message GetAllNotificationsSuccess {
+    repeated NotificationData notifications = 1;
+    int32 total = 2;
+}

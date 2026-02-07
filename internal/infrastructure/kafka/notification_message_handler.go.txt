@@ -1,0 +1,166 @@
+package kafka
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain"
+	repository "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/repositories"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/utils"
+	"go.uber.org/zap"
+)
+
+// ------------------- Detailed MessageHandler Best Practices Example -------------------
+
+// NotificationMessageHandler demonstrates a best-practices implementation for a real handler.
+// This would typically live in your application layer/adapters, and be injected into Subscribe.
+//
+// It handles deserialization, message routing by topic, business processing (e.g. idempotency, etc),
+// error handling, and logging. It is clean, testable, and decoupled from infrastructure details.
+func NotificationMessageHandler(
+	processor ports.NotificationProcessor,
+	repo repository.NotificationRepository,
+	logger *zap.Logger,
+) ports.MessageHandler {
+	return func(ctx context.Context, msg []byte) error {
+		// Example: parse topic from context if available, or embed topic in msg wrapper
+		// Here, for demo, we parse the notification generically or by "embedded topic" field
+		
+		var base struct {
+			Type string `json:"type"`
+		}
+		var notification *domain.Notification
+
+		// Try to guess the type (for demo purposes; best to have topic passed via context!)
+		if err := json.Unmarshal(msg, &base); err == nil {
+			switch base.Type {
+			case "otp-request":
+				var otpReq OTPRequest
+				if err := json.Unmarshal(msg, &otpReq); err != nil {
+					logger.Error("Failed to unmarshal OTPRequest", zap.Error(err))
+					return fmt.Errorf("invalid OTP request json: %w", err)
+				}
+				notification = otpReq.ToNotification()
+			case "forgot-password-request":
+				var fpReq ForgotPasswordRequest
+				if err := json.Unmarshal(msg, &fpReq); err != nil {
+					logger.Error("Failed to unmarshal ForgotPasswordRequest", zap.Error(err))
+					return fmt.Errorf("invalid forgot-password request json: %w", err)
+				}
+				notification = fpReq.ToNotification()
+			default:
+				var notif domain.Notification
+				if err := json.Unmarshal(msg, &notif); err != nil {
+					logger.Error("Failed to unmarshal Notification", zap.Error(err))
+					return fmt.Errorf("invalid notification json: %w", err)
+				}
+				notification = &notif
+			}
+		} else {
+			var notif domain.Notification
+			if err := json.Unmarshal(msg, &notif); err != nil {
+				logger.Error("Failed to unmarshal Notification fallback", zap.Error(err))
+				return fmt.Errorf("invalid notification json: %w", err)
+			}
+			notification = &notif
+		}
+
+		if notification == nil {
+			return fmt.Errorf("empty notification after parsing")
+		}
+
+		// Validate notification
+		if err := notification.Validate(); err != nil {
+			logger.Error("Invalid notification", zap.Error(err))
+			return fmt.Errorf("validation failed: %w", err)
+		}
+
+		// Idempotency check
+		if repo != nil {
+			processed, err := repo.CheckIfProcessed(ctx, notification.ID)
+			if err != nil {
+				logger.Error("Failed to check idempotency", zap.Error(err))
+				return fmt.Errorf("failed idempotency check: %w", err)
+			}
+			if processed {
+				logger.Info("Message already processed, skipping",
+					zap.String("notification_id", notification.ID),
+				)
+				return nil
+			}
+		}
+
+		// Main business processing
+		if processor != nil {
+			if err := processor.Process(ctx, notification); err != nil {
+				logger.Error("Processing notification failed", zap.Error(err))
+				return fmt.Errorf("processing failed: %w", err)
+			}
+		}
+
+		// Mark as processed after successful business
+		if repo != nil {
+			if err := repo.MarkAsProcessed(ctx, notification.ID); err != nil {
+				logger.Error("Failed to mark as processed", zap.Error(err))
+				// Not a terminal failure for handler
+			}
+		}
+
+		logger.Info("Notification processed successfully",
+			zap.String("notification_id", notification.ID),
+		)
+		return nil
+	}
+}
+
+// -------------------- Example DTOs for Notification MessageHandler --------------------
+
+type OTPRequest struct {
+	UserID   string `json:"user_id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+}
+
+func (o OTPRequest) ToNotification() *domain.Notification {
+	return &domain.Notification{
+		ID:        utils.GenerateID(),
+		UserId:    o.UserID,
+		Type:      domain.EmailNotification,
+		Subject:   "Your OTP Code",
+		Recipient: o.Email,
+		// Body set by OTP service.
+	}
+}
+
+type ForgotPasswordRequest struct {
+	UserID    string `json:"user_id"`
+	Email     string `json:"email"`
+	Username  string `json:"username"`
+	ResetLink string `json:"reset_link"`
+}
+
+func (f ForgotPasswordRequest) ToNotification() *domain.Notification {
+	body := fmt.Sprintf(`
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Password Reset Request</h2>
+    <p>Hello %s,</p>
+    <p>Click the link below to reset your password:</p>
+    <a href="%s">Reset Password</a>
+    <p>This link expires in 1 hour.</p>
+</body>
+</html>
+	`, f.Username, f.ResetLink)
+
+	return &domain.Notification{
+		ID:        utils.GenerateID(),
+		UserId:    f.UserID,
+		Type:      domain.EmailNotification,
+		Subject:   "Password Reset Request",
+		Body:      body,
+		Recipient: f.Email,
+	}
+}
