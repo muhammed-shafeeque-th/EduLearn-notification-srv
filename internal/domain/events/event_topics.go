@@ -4,19 +4,19 @@ package domain_events
 type KafkaTopic string
 
 const (
-	// Notification Outbox/Events Topics (Produced when a notification is sent/triggered)
-	TopicNotificationEmailSent     KafkaTopic = "notification.sent.email.v1"
-	TopicNotificationSMSSent       KafkaTopic = "notification.sent.sms.v1"
-	TopicNotificationInAppSent     KafkaTopic = "notification.sent.in-app.v1"
-	TopicNotificationPushSent      KafkaTopic = "notification.sent.push.v1"
+	// Notification Outbox/Events Topics (
+	TopicNotificationEmailSent KafkaTopic = "notification.sent.email.v1"
+	TopicNotificationSMSSent   KafkaTopic = "notification.sent.sms.v1"
+	TopicNotificationInAppSent KafkaTopic = "notification.sent.in-app.v1"
+	TopicNotificationPushSent  KafkaTopic = "notification.sent.push.v1"
 
-	// Notification Request Topics (Consumer-facing, for requests TO the notification service)
-	TopicNotificationRequestEmail  KafkaTopic = "notification.request.email.v1"
-	TopicNotificationRequestSMS    KafkaTopic = "notification.request.sms.v1"
-	TopicNotificationRequestInApp  KafkaTopic = "notification.request.in-app.v1"
-	TopicNotificationRequestPush   KafkaTopic = "notification.request.push.v1"
+	// Notification Request Topics
+	TopicNotificationRequestEmail KafkaTopic = "notification.request.email.v1"
+	TopicNotificationRequestSMS   KafkaTopic = "notification.request.sms.v1"
+	TopicNotificationRequestInApp KafkaTopic = "notification.request.in-app.v1"
+	TopicNotificationRequestPush  KafkaTopic = "notification.request.push.v1"
 
-	// Auth Related Notification Request Topics (for specific workflows)
+	// Auth Related Notification Request Topics
 	TopicNotificationRequestOTP            KafkaTopic = "notification.request.auth.otp.v1"
 	TopicNotificationRequestForgotPassword KafkaTopic = "notification.request.auth.forgot-password.v1"
 	TopicNotificationRequestAccountCreated KafkaTopic = "notification.request.auth.account-created.v1"
@@ -36,13 +36,13 @@ const (
 	TopicAuthAccountActivated KafkaTopic = "auth.account.activated.v1"
 	TopicAuthAccountSuspended KafkaTopic = "auth.account.suspended.v1"
 
-	// Generic Notification Event Streams (for publish/consume models, channel oriented)
-	TopicNotificationEmailChannel   KafkaTopic = "notification.channel.email.v1"
-	TopicNotificationSMSChannel     KafkaTopic = "notification.channel.sms.v1"
-	TopicNotificationPushChannel    KafkaTopic = "notification.channel.push.v1"
-	TopicNotificationInAppChannel   KafkaTopic = "notification.channel.in-app.v1"
+	// Generic Notification Event Streams
+	TopicNotificationEmailChannel KafkaTopic = "notification.channel.email.v1"
+	TopicNotificationSMSChannel   KafkaTopic = "notification.channel.sms.v1"
+	TopicNotificationPushChannel  KafkaTopic = "notification.channel.push.v1"
+	TopicNotificationInAppChannel KafkaTopic = "notification.channel.in-app.v1"
 
-	// Miscellaneous or catch-all (Event/request not addressed by specific topics)
+	// Miscellaneous or catch-all
 	TopicNotificationRequestGeneral KafkaTopic = "notification.request.general.v1"
 	TopicNotificationEventGeneral   KafkaTopic = "notification.event.general.v1"
 )
