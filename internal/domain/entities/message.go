@@ -1,7 +1,7 @@
 package entity
 
 type InAppWSMessage struct {
-	Type             string            `json:"type"` // "notification"
+	Type             string            `json:"type"` 
 	ID               string            `json:"id"`
 	UserID           string            `json:"userId"`
 	Subject          string            `json:"subject,omitempty"`
