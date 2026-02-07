@@ -32,13 +32,26 @@ var (
 			Help: "Total number of email send errors",
 		},
 	)
+	EmailRetries = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "notification_service_email_retries",
+			Help: "Total number of retries for email sent",
+		},
+	)
+	EmailRateLimited = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Name: "notification_service_email_rate_limited",
+			Help: "Total number of rate limits for email sent",
+		},
+	)
 )
 
 func InitMetrics() {
-	prometheus.MustRegister(EmailSentTotal)
-	prometheus.MustRegister(EmailSendErrors)
-	prometheus.MustRegister(KafkaMessageProcessed)
-	prometheus.MustRegister(OTPSentTotal)
+	prometheus.MustRegister(
+		EmailSentTotal,
+		EmailSendErrors,
+		KafkaMessageProcessed,
+		OTPSentTotal)
 }
 
 func StartMetricsServer() {
@@ -46,4 +59,7 @@ func StartMetricsServer() {
 	go func() {
 		http.ListenAndServe(":9090", nil)
 	}()
+}
+func GetHandler() http.Handler {
+	return promhttp.Handler()
 }
