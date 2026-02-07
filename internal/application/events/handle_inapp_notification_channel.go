@@ -21,7 +21,6 @@ type InAppNotificationChannelHandler struct {
 	logger           *zap.Logger
 }
 
-// NewInAppNotificationChannelHandler initializes a new InAppNotificationChannelHandler.
 func NewInAppNotificationChannelHandler(
 	notificationRepo repository.NotificationRepository,
 	hub ports.WsHubAdaptor,
@@ -34,7 +33,6 @@ func NewInAppNotificationChannelHandler(
 	}
 }
 
-// Handle processes an InAppNotificationEvent, saves to database, and broadcasts via WebSocket.
 func (h *InAppNotificationChannelHandler) Handle(ctx context.Context, message []byte) error {
 	var event domain_events.InAppNotificationEvent
 	if err := json.Unmarshal(message, &event); err != nil {
@@ -43,7 +41,7 @@ func (h *InAppNotificationChannelHandler) Handle(ctx context.Context, message []
 	}
 
 	// Validate incoming event
-	if err := event.Validate(); err != nil {
+	if err := event.Payload.Validate(); err != nil {
 		h.logger.Error("Invalid InAppNotificationEvent", zap.Error(err))
 		return fmt.Errorf("validation failed: %w", err)
 	}
@@ -63,23 +61,23 @@ func (h *InAppNotificationChannelHandler) Handle(ctx context.Context, message []
 		}
 	}
 
+	payload := event.Payload
+
 	// Compose the notification entity from the event
 	notification := &entity.Notification{
-		ID:        event.EventID, // Prefer explicit IDs for idempotency
-		UserId:    event.UserID,
+		ID:        event.EventID,
+		UserId:    payload.UserID,
 		Type:      entity.InAppNotification,
-		Subject:   event.Title,
-		Body:      event.Message,
-		Recipient: event.UserID, // In-app recipient is typically the user ID
+		Subject:   payload.Title,
+		Body:      payload.Message,
+		Recipient: payload.UserID,
 		IsRead:    false,
-		CreatedAt: time.Now(), // Use server time for consistency
-		Priority:  event.Priority,
-		ActionURL: event.ActionUrl,
-		Category:  entity.MapToCategory(event.Category),
-		// Metadata is filled when building WebSocket message
+		CreatedAt: time.Now(),
+		Priority:  payload.Priority,
+		ActionURL: payload.ActionUrl,
+		Category:  entity.MapToCategory(payload.Category),
 	}
 
-	// Save the notification to the database
 	if h.notificationRepo != nil {
 		if err := h.notificationRepo.SaveNotification(ctx, notification); err != nil {
 			h.logger.Error("Failed to save in-app notification",
@@ -90,14 +88,18 @@ func (h *InAppNotificationChannelHandler) Handle(ctx context.Context, message []
 		}
 	}
 
-	// Build the WebSocket message and broadcast
 	wsMessage := buildWebSocketMessage(notification)
 	if err := h.hub.NotifyInAppMessage(wsMessage); err != nil {
 		h.logger.Warn("Failed to broadcast WebSocket message",
 			zap.String("notification_id", notification.ID),
 			zap.String("user_id", notification.UserId),
 			zap.Error(err))
-		// Notification already saved; do not return error
+	}
+
+	if h.notificationRepo != nil && event.EventID != "" {
+		if err := h.notificationRepo.MarkAsProcessed(ctx, event.EventID); err != nil {
+			h.logger.Error("Failed to mark notification as processed", zap.Error(err))
+		}
 	}
 
 	h.logger.Info("In-app notification sent and broadcast",
@@ -142,8 +144,6 @@ func determinePriority(n *entity.Notification) string {
 	return "normal"
 }
 
-
-
 // buildMetadata constructs the metadata map for a WebSocket message.
 func buildMetadata(n *entity.Notification) map[string]string {
 	metadata := make(map[string]string)
@@ -183,7 +183,6 @@ func extractActionURL(n *entity.Notification) string {
 	if n.ActionURL != "" {
 		return n.ActionURL
 	}
-	// [OPTIONAL] expand with regex extraction from n.Body if needed for your use case.
 	return ""
 }
 
