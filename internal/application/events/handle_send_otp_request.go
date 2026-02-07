@@ -23,7 +23,6 @@ type OTPRequestEventHandler struct {
 	logger           *zap.Logger
 }
 
-// NewOTPRequestEventHandler constructs a new instance of OTPRequestEventHandler using dependency injection.
 func NewOTPRequestEventHandler(
 	renderer ports.TemplateRenderer,
 	notificationRepo repository.NotificationRepository,
@@ -42,7 +41,6 @@ func NewOTPRequestEventHandler(
 	}
 }
 
-// Handle processes an OTP request event message by validating, generating OTP, and emailing the OTP.
 func (s *OTPRequestEventHandler) Handle(ctx context.Context, message []byte) error {
 	s.logger.Info("Request received for OTP request")
 	var event domain_events.OTPRequestEvent
@@ -50,10 +48,10 @@ func (s *OTPRequestEventHandler) Handle(ctx context.Context, message []byte) err
 		s.logger.Error("Failed to unmarshal OTPRequestEvent", zap.Error(err))
 		return fmt.Errorf("invalid otp-request event json: %w", err)
 	}
-	s.logger.Info("Successfully Unmarshaled event message", zap.String("userId", event.UserID), zap.String("Email", event.Email))
+	s.logger.Info("Successfully Unmarshaled event message", zap.String("userId", event.Payload.UserID), zap.String("Email", event.Payload.Email))
 
 	// Validate event fields
-	if err := event.Validate(); err != nil {
+	if err := event.Payload.Validate(); err != nil {
 		s.logger.Error("Invalid OTP request event", zap.Error(err))
 		return fmt.Errorf("validation failed: %w", err)
 	}
@@ -73,12 +71,14 @@ func (s *OTPRequestEventHandler) Handle(ctx context.Context, message []byte) err
 		}
 	}
 
+	payload := event.Payload;
+
 	// Generate OTP
-	otp, err := entity.NewOTP(event.UserID, event.Email)
+	otp, err := entity.NewOTP(payload.UserID, payload.Email)
 	if err != nil {
 		s.logger.Error("Failed to generate OTP",
-			zap.String("userId", event.UserID),
-			zap.String("email", event.Email),
+			zap.String("userId", payload.UserID),
+			zap.String("email", payload.Email),
 			zap.Error(err),
 		)
 		return fmt.Errorf("failed to generate OTP: %w", err)
@@ -87,16 +87,16 @@ func (s *OTPRequestEventHandler) Handle(ctx context.Context, message []byte) err
 	// Save to OTP repository
 	if s.otpRepo != nil {
 		if err := s.otpRepo.SaveOTP(ctx, otp); err != nil {
-			s.logger.Error("Failed to save OTP", zap.String("email", event.Email), zap.Error(err))
+			s.logger.Error("Failed to save OTP", zap.String("email", payload.Email), zap.Error(err))
 			return fmt.Errorf("failed to save OTP: %w", err)
 		}
 	}
 
-	body, err := s.buildOTPEmailBody(event.Username, otp.Code)
+	body, err := s.buildOTPEmailBody(payload.Username, otp.Code)
 	if err != nil {
 		s.logger.Error(
 			"Failed to render OTP template",
-			zap.String("username", event.Username),
+			zap.String("username", payload.Username),
 			zap.Error(err),
 		)
 		return fmt.Errorf("failed to render OTP template: %w", err)
@@ -105,18 +105,18 @@ func (s *OTPRequestEventHandler) Handle(ctx context.Context, message []byte) err
 	// Create email notification
 	notification := &entity.Notification{
 		ID:        utils.GenerateID(),
-		UserId:    event.UserID,
+		UserId:    payload.UserID,
 		Type:      entity.EmailNotification,
 		Subject:   "Your OTP Code",
 		Body:      body,
-		Recipient: event.Email,
+		Recipient: payload.Email,
 	}
 
 	// Send via email sender
 	if err := s.emailSender.Send(ctx, notification); err != nil {
 		s.logger.Error(
 			"Failed to send OTP email",
-			zap.String("email", event.Email),
+			zap.String("email", payload.Email),
 			zap.Error(err),
 		)
 		return fmt.Errorf("failed to send OTP email: %w", err)
@@ -126,16 +126,16 @@ func (s *OTPRequestEventHandler) Handle(ctx context.Context, message []byte) err
 	if s.notificationRepo != nil && event.EventID != "" {
 		if err := s.notificationRepo.MarkAsProcessed(ctx, event.EventID); err != nil {
 			s.logger.Error("Failed to mark notification as processed", zap.Error(err))
-			// Not a terminal error; log and continue
 		}
 	}
 	s.logger.Debug("OTP for debug with email and code",
-		zap.String("email", event.Email),
+		zap.String("email", payload.Email),
 		zap.String("otp", otp.Code))
 
 	s.logger.Info("OTP sent successfully",
-		zap.String("userId", event.UserID),
-		zap.String("email", event.Email),
+		zap.String("otp", otp.Code),
+		zap.String("userId", payload.UserID),
+		zap.String("email", payload.Email),
 		zap.String("notification_id", event.EventID),
 	)
 
