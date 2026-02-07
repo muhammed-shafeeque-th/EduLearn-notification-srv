@@ -2,38 +2,73 @@ package ratelimit
 
 import (
 	"context"
-	"sync"
+	"fmt"
+	"time"
 
-	"github.com/Shafeeqth/notification-service/internal/domain"
-	"golang.org/x/time/rate"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
+	domain_errors "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/errors"
 )
 
+// Default configuration values for RateLimiter
+const (
+	DefaultRateLimit      = 10                 // Default number of allowed requests per window
+	DefaultRateLimitWindow = time.Minute       // Default window duration for rate limiting
+	DefaultLimiterPrefix   = "notification"    // Default prefix for redis keys
+)
+
+// RateLimiter does best-practice fixed-window distributed rate limiting using Redis' INCR/EXPIRE.
 type RateLimiter struct {
-	limiters map[string]*rate.Limiter
-	mutex    sync.Mutex
-	rate     float64 // Requests per second
-	burst    int     // Burst size
+	cache  ports.Cache
+	rate   int
+	window time.Duration
+	prefix string
 }
 
-func NewRateLimiter(rates float64, burst int) *RateLimiter {
+// NewRateLimiter constructs a new limiter instance.
+func NewRateLimiter(cache ports.Cache, rate int, window time.Duration, prefix string) *RateLimiter {
 	return &RateLimiter{
-		limiters: make(map[string]*rate.Limiter),
-		rate:     rates,
-		burst:    burst,
+		cache:  cache,
+		rate:   rate,
+		window: window,
+		prefix: prefix,
 	}
 }
 
-func (r *RateLimiter) Allow(ctx context.Context, key string) error {
-	r.mutex.Lock()
-	limiter, exists := r.limiters[key]
-	if !exists {
-		limiter = rate.NewLimiter(rate.Limit(r.rate), r.burst)
-		r.limiters[key] = limiter
+// DefaultRateLimiter constructs a new RateLimiter instance with default configuration values.
+func DefaultRateLimiter(cache ports.Cache) *RateLimiter {
+	return &RateLimiter{
+		cache:  cache,
+		rate:   DefaultRateLimit,
+		window: DefaultRateLimitWindow,
+		prefix: DefaultLimiterPrefix,
 	}
-	r.mutex.Unlock()
-	if err := limiter.Wait(ctx); err != nil {
-		return domain.ErrRateLimit
+}
+
+// Allow checks if the provided key is within the rate limit, otherwise returns domain.ErrRateLimit.
+func (l *RateLimiter) Allow(ctx context.Context, key string) error {
+	now := time.Now().UTC()
+	windowKey := fmt.Sprintf("%s:rate_limit:%s:%d", l.prefix, key, now.Unix()/int64(l.window.Seconds()))
+
+	// Atomically increment the counter.
+	count, err := l.cache.Incr(ctx, windowKey)
+	if err != nil {
+		return domain_errors.ErrRateLimit // or return custom ErrRedisUnavailable
+	}
+
+	if count == 1 {
+		// Set key to expire at end of window (best practice).
+		_ = l.cache.Expire(ctx, windowKey, l.window+time.Second)
+	}
+	if count > int64(l.rate) {
+		return domain_errors.ErrRateLimit
 	}
 	return nil
-
 }
+
+// Reset resets the rate limiter state for the key (useful in tests and for user management).
+func (l *RateLimiter) Reset(ctx context.Context, key string) error {
+	windowPattern := fmt.Sprintf("%s:rate_limit:%s:*", l.prefix, key)
+	_, err := l.cache.Del(ctx, windowPattern)
+	return err
+}
+
