@@ -8,6 +8,7 @@ import (
 )
 
 type NotificationType string
+type NotificationCategory string
 
 const (
 	EmailNotification NotificationType = "email"
@@ -16,6 +17,27 @@ const (
 	PushNotification  NotificationType = "push"
 )
 
+const (
+	CourseCategory      NotificationCategory = "course"
+	AssignmentCategory  NotificationCategory = "assignment"
+	AchievementCategory NotificationCategory = "achievement"
+	MessageCategory     NotificationCategory = "message"
+	SystemCategory      NotificationCategory = "system"
+)
+
+// MapToCategory validates and maps a string to a known NotificationCategory constant.
+func  MapToCategory(category string) NotificationCategory {
+	switch category {
+	case string(CourseCategory),
+		string(AssignmentCategory),
+		string(AchievementCategory),
+		string(MessageCategory),
+		string(SystemCategory):
+		return NotificationCategory(category)
+	default:
+		return MessageCategory
+	}
+}
 func (nt NotificationType) IsValid() bool {
 	switch nt {
 	case EmailNotification, SMSNotification, PushNotification, InAppNotification:
@@ -25,19 +47,19 @@ func (nt NotificationType) IsValid() bool {
 }
 
 type Notification struct {
-	ID               string            `json:"id"`
-	UserId           string            `json:"userId"`
-	Type             NotificationType  `json:"type"`
-	Subject          string            `json:"subject"`
-	Body             string            `json:"body"`
-	Recipient        string            `json:"recipient"`
-	IsRead           bool              `json:"isRead"`
-	CreatedAt        time.Time         `json:"createdAt"`
-	UpdatedAt        time.Time         `json:"updatedAt"`
-	Priority         string            `json:"priority,omitempty"`
-	ActionURL        string            `json:"actionUrl,omitempty"`
-	NotificationType string            `json:"notificationType,omitempty"`
-	Metadata         map[string]string `json:"metadata,omitempty"`
+	ID        string               `json:"id"`
+	UserId    string               `json:"userId"`
+	Type      NotificationType     `json:"type"`
+	Subject   string               `json:"subject"`
+	Body      string               `json:"body"`
+	Recipient string               `json:"recipient"`
+	IsRead    bool                 `json:"isRead"`
+	CreatedAt time.Time            `json:"createdAt"`
+	UpdatedAt time.Time            `json:"updatedAt"`
+	Priority  string               `json:"priority,omitempty"`
+	ActionURL string               `json:"actionUrl,omitempty"`
+	Category  NotificationCategory `json:"category,omitempty"`
+	Metadata  map[string]string    `json:"metadata,omitempty"`
 }
 
 // Getters
@@ -86,8 +108,8 @@ func (n *Notification) GetActionURL() string {
 	return n.ActionURL
 }
 
-func (n *Notification) GetNotificationType() string {
-	return n.NotificationType
+func (n *Notification) GetCategory() NotificationCategory {
+	return n.Category
 }
 
 // Setters
@@ -100,7 +122,7 @@ func (n *Notification) SetUserId(userId string) {
 	n.UserId = userId
 }
 
-func (n *Notification) SetType(nt NotificationType) {
+func (n *Notification) SetNotificationType(nt NotificationType) {
 	n.Type = nt
 }
 
@@ -136,8 +158,8 @@ func (n *Notification) SetActionURL(actionURL string) {
 	n.ActionURL = actionURL
 }
 
-func (n *Notification) SetNotificationType(notificationType string) {
-	n.NotificationType = notificationType
+func (n *Notification) SetCategory(category string) {
+	n.Category = MapToCategory(category)
 }
 
 func (n *Notification) Validate() error {
