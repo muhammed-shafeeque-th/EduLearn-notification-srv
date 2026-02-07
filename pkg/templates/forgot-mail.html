@@ -289,7 +289,7 @@
 
             <!-- Content -->
             <div class="email-content">
-                <div class="greeting">Hello {{USER_NAME}},</div>
+                <div class="greeting">Hello {{.USER_NAME}},</div>
                 
                 <div class="message-text">
                     We received a request to reset the password for your <strong>EduLearn</strong> account. Don't worry, it happens to the best of us! You can securely reset your password using the button below.
@@ -297,8 +297,8 @@
 
                 <!-- Reset Button Section -->
                 <div class="reset-section">
-                    <a href="{{RESET_LINK}}" class="reset-button">🔐 Reset My Password</a>
-                    <div class="button-validity">⏰ This link expires in {{EXPIRY_TIME}} minutes</div>
+                    <a href="{{.RESET_LINK}}" class="reset-button">🔐 Reset My Password</a>
+                    <div class="button-validity">⏰ This link expires in {{.EXPIRY_TIME}} minutes</div>
                 </div>
 
                 <div class="message-text">
@@ -311,7 +311,7 @@
                     <div class="alternative-text">
                         Copy and paste this link into your browser's address bar:
                     </div>
-                    <a href="{{RESET_LINK}}" class="reset-link">{{RESET_LINK}}</a>
+                    <a href="{{.RESET_LINK}}" class="reset-link">{{.RESET_LINK}}</a>
                 </div>
 
                 <!-- Security Notice -->
@@ -320,7 +320,7 @@
                     <div class="security-notice-text">
                         • <strong>Didn't request this?</strong> If you didn't request a password reset, you can safely ignore this email. Your account remains secure.<br><br>
                         • <strong>Keep it secure:</strong> Never share your reset link with anyone. EduLearn will never ask for your password via email.<br><br>
-                        • <strong>Act quickly:</strong> This reset link will expire in {{EXPIRY_TIME}} minutes for your security.
+                        • <strong>Act quickly:</strong> This reset link will expire in {{.EXPIRY_TIME}} minutes for your security.
                     </div>
                 </div>
 
@@ -339,8 +339,8 @@
                 <div class="company-info">
                     © 2024 EduLearn. All rights reserved.<br>
                     Empowering minds through innovative learning experiences.<br>
-                    <a href="{{UNSUBSCRIBE_LINK}}" style="color: #a0aec0; text-decoration: none;">Unsubscribe</a> | 
-                    <a href="{{PRIVACY_POLICY_LINK}}" style="color: #a0aec0; text-decoration: none;">Privacy Policy</a>
+                    <a href="{{.UNSUBSCRIBE_LINK}}" style="color: #a0aec0; text-decoration: none;">Unsubscribe</a> | 
+                    <a href="{{.PRIVACY_POLICY_LINK}}" style="color: #a0aec0; text-decoration: none;">Privacy Policy</a>
                 </div>
             </div>
         </div>
