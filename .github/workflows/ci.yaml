@@ -3,8 +3,6 @@ name: Build Workflow CI
 on:
   push:
     branches: [main]
-    paths:
-      - "src/**"
 
 permissions:
   contents: read
