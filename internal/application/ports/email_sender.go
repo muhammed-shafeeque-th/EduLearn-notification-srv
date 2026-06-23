@@ -6,10 +6,7 @@ import (
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
 )
 
-// To encapsulate the fields and expose only getters, define an interface with getter methods,
-// and a struct with unexported fields and exported methods.
 // Any struct implementing these methods will satisfy the NotificationLike interface.
-
 type NotificationLike interface {
 	GetUserId() string
 	GetType() entity.NotificationType
@@ -22,7 +19,7 @@ type NotificationLike interface {
 
 // This provides encapsulation (fields are private) and
 // allows any struct with those methods to be used as NotificationLike.
-// type NotificationLike interface {
+// type NumberLike interface {
 //     ~int | ~int8 | ~int16 | ~int32 | ~int64 |
 //     ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 |
 //     ~float32 | ~float64

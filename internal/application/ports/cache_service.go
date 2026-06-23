@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-// Cache is a best-practice cache interface that enables efficient and type-safe interaction with key-value stores.
-// It includes methods for basic CRUD operations, atomicity, existence checks, expiration control, and cache health monitoring.
 type Cache interface {
 	// Set stores a value with a given key and optional expiration.
 	Set(ctx context.Context, key string, value interface{}, expiration time.Duration) error
