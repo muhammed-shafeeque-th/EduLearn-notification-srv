@@ -1,0 +1,28 @@
+name: Build Workflow CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # --------------------------------------------------
+  # Job 2: Call reusable workflow (matrix per service)
+  # --------------------------------------------------
+  build-and-push:
+    strategy:
+      fail-fast: false
+      matrix:
+        service: [notification]
+        # service: ${{ fromJson(needs.detect-changes.outputs.services) }}
+
+    # Reusable workflows are called at JOB level
+    uses: ./.github/workflows/ci-workflow.yaml
+
+    with:
+      service: ${{ matrix.service }}
