@@ -31,5 +31,3 @@ _*
 # Build directories
 bin/
 build/
-
-test/
