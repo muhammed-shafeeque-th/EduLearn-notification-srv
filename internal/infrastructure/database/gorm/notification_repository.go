@@ -2,8 +2,11 @@ package database
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
+
+	"strings"
 
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain"
@@ -13,7 +16,6 @@ import (
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/database/gorm/models"
 	"go.uber.org/zap"
 	"gorm.io/gorm"
-	"strings"
 )
 
 // NotificationRepository implements domain.NotificationRepository
@@ -200,7 +202,7 @@ func (r *NotificationRepository) invalidateUserNotificationCaches(ctx context.Co
 		}
 	}
 	if len(allErrs) > 0 {
-		return fmt.Errorf(strings.Join(allErrs, "; "))
+		return errors.New(strings.Join(allErrs, "; "))
 	}
 	return nil
 }
@@ -381,19 +383,19 @@ func (r *NotificationRepository) mapToEntityModel(notification *entity.Notificat
 		return nil
 	}
 	return &models.NotificationModel{
-		ID:               notification.ID,
-		UserId:           notification.UserId,
-		Type:             notification.Type,
-		ActionURL:        notification.ActionURL,
-		Subject:          notification.Subject,
-		Body:             notification.Body,
-		Recipient:        notification.Recipient,
-		IsRead:           notification.IsRead,
-		CreatedAt:        notification.CreatedAt,
-		UpdatedAt:        notification.UpdatedAt,
-		Priority:         notification.Priority,
-		Category:         notification.Category,
-		Metadata:         notification.Metadata,
+		ID:        notification.ID,
+		UserId:    notification.UserId,
+		Type:      notification.Type,
+		ActionURL: notification.ActionURL,
+		Subject:   notification.Subject,
+		Body:      notification.Body,
+		Recipient: notification.Recipient,
+		IsRead:    notification.IsRead,
+		CreatedAt: notification.CreatedAt,
+		UpdatedAt: notification.UpdatedAt,
+		Priority:  notification.Priority,
+		Category:  notification.Category,
+		Metadata:  notification.Metadata,
 	}
 }
 
@@ -402,18 +404,18 @@ func (r *NotificationRepository) mapToDomainEntity(notification *models.Notifica
 		return nil
 	}
 	return &entity.Notification{
-		ID:               notification.ID,
-		UserId:           notification.UserId,
-		Type:             notification.Type,
-		ActionURL:        notification.ActionURL,
-		Subject:          notification.Subject,
-		Body:             notification.Body,
-		Recipient:        notification.Recipient,
-		IsRead:           notification.IsRead,
-		CreatedAt:        notification.CreatedAt,
-		UpdatedAt:        notification.UpdatedAt,
-		Priority:         notification.Priority,
-		Category:         notification.Category,
-		Metadata:         notification.Metadata,
+		ID:        notification.ID,
+		UserId:    notification.UserId,
+		Type:      notification.Type,
+		ActionURL: notification.ActionURL,
+		Subject:   notification.Subject,
+		Body:      notification.Body,
+		Recipient: notification.Recipient,
+		IsRead:    notification.IsRead,
+		CreatedAt: notification.CreatedAt,
+		UpdatedAt: notification.UpdatedAt,
+		Priority:  notification.Priority,
+		Category:  notification.Category,
+		Metadata:  notification.Metadata,
 	}
 }
