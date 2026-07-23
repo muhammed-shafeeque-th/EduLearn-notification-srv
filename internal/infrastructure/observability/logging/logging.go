@@ -4,9 +4,11 @@ import (
 	"os"
 	"time"
 
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gopkg.in/natefinch/lumberjack.v2"
+	// "gopkg.in/natefinch/lumberjack.v2"
 )
 
 type LoggingConfig struct {
@@ -19,7 +21,11 @@ type LoggingConfig struct {
 	Environment    string
 }
 
-func NewLogger(config LoggingConfig) (*zap.Logger, error) {
+type LoggerService struct {
+	logger *zap.Logger
+}
+
+func NewLoggerService(config LoggingConfig) (ports.LoggerService, error) {
 	// Parse log level
 	level, err := zapcore.ParseLevel(config.LogLevel)
 	if err != nil {
@@ -59,21 +65,21 @@ func NewLogger(config LoggingConfig) (*zap.Logger, error) {
 	)
 	cores = append(cores, consoleCore)
 
-	// File core (if log file is specified)
-	if config.LogFile != "" {
-		fileCore := zapcore.NewCore(
-			encoder,
-			zapcore.AddSync(&lumberjack.Logger{
-				Filename:   config.LogFile,
-				MaxSize:    100, // megabytes
-				MaxBackups: 3,
-				MaxAge:     28, // days
-				Compress:   true,
-			}),
-			level,
-		)
-		cores = append(cores, fileCore)
-	}
+	// // File core (if log file is specified)
+	// if config.LogFile != "" {
+	// 	fileCore := zapcore.NewCore(
+	// 		encoder,
+	// 		zapcore.AddSync(&lumberjack.Logger{
+	// 			Filename:   config.LogFile,
+	// 			MaxSize:    100, // megabytes
+	// 			MaxBackups: 3,
+	// 			MaxAge:     28, // days
+	// 			Compress:   true,
+	// 		}),
+	// 		level,
+	// 	)
+	// 	cores = append(cores, fileCore)
+	// }
 
 	// Create core
 	core := zapcore.NewTee(cores...)
@@ -93,10 +99,38 @@ func NewLogger(config LoggingConfig) (*zap.Logger, error) {
 		zap.String("hostname", getHostname()),
 	}
 
-
 	logger = logger.With(fields...)
 
-	return logger, nil
+	return &LoggerService{logger}, nil
+}
+
+func (l *LoggerService) Info(msg string, fields ...logger.Field) {
+	l.logger.Info(msg, fields...)
+
+}
+func (l *LoggerService) Error(msg string, fields ...logger.Field) {
+	l.logger.Error(msg, fields...)
+
+}
+func (l *LoggerService) Log(lvl logger.Level, msg string, fields ...logger.Field) {
+	l.logger.Log(zapcore.Level(lvl), msg, fields...)
+}
+
+func (l *LoggerService) Debug(msg string, fields ...logger.Field) {
+	l.logger.Debug(msg, fields...)
+
+}
+func (l *LoggerService) Warn(msg string, fields ...logger.Field) {
+	l.logger.Warn(msg, fields...)
+
+}
+func (l *LoggerService) Panic(msg string, fields ...logger.Field) {
+	l.logger.Panic(msg, fields...)
+
+}
+func (l *LoggerService) Fatal(msg string, fields ...logger.Field) {
+	l.logger.Fatal(msg, fields...)
+
 }
 
 // Helper function to get hostname
@@ -118,20 +152,20 @@ func WithFields(logger *zap.Logger, fields map[string]interface{}) *zap.Logger {
 }
 
 // Helper function to log with trace context
-func LogWithTrace(logger *zap.Logger, traceID, spanID string, message string, fields ...zap.Field) {
+func LogWithTrace(zap ports.LoggerService, traceID, spanID string, message string, fields ...zap.Field) {
 	allFields := append(fields,
-		zap.String("trace_id", traceID),
-		zap.String("span_id", spanID),
+		logger.String("trace_id", traceID),
+		logger.String("span_id", spanID),
 	)
-	logger.Info(message, allFields...)
+	zap.Info(message, allFields...)
 }
 
 // Helper function to create request logger
-func NewRequestLogger(logger *zap.Logger, method, path, userID string) *zap.Logger {
-	return logger.With(
-		zap.String("method", method),
-		zap.String("path", path),
-		zap.String("user_id", userID),
-		zap.Time("request_time", time.Now()),
+func NewRequestLogger(log *zap.Logger, method, path, userID string) *zap.Logger {
+	return log.With(
+		logger.String("method", method),
+		logger.String("path", path),
+		logger.String("user_id", userID),
+		logger.Time("request_time", time.Now()),
 	)
 }
