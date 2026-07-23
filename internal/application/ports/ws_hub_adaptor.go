@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
-	ws "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/interfaces/websocket"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/ws"
 )
 
 type WsHubAdaptor interface {
@@ -15,3 +15,5 @@ type WsHubAdaptor interface {
 	ServeWS(auth ws.AuthFunc) http.HandlerFunc
 	Shutdown(ctx context.Context) error
 }
+
+
