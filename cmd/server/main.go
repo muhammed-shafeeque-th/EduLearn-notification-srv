@@ -13,8 +13,6 @@ import (
 	di "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/bootstrap"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/config"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/health"
-	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/metrics"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 )
 
@@ -26,27 +24,26 @@ func main() {
 	}
 
 	diCfg := &di.Config{
-		ServiceName:      cfg.ServiceName,
-		ServiceVersion:   cfg.ServiceVersion,
-		Environment:      cfg.Environment,
-		DatabaseDSN:      cfg.DatabaseDSN,
-		RedisAddr:        cfg.RedisAddr,
-		SMTPHost:         cfg.SMTPHost,
-		SMTPPort:         strconv.Itoa(cfg.SMTPPort),
-		SMTPUsername:     cfg.SMTPUsername,
-		SMTPPassword:     cfg.SMTPPassword,
-		KafkaBrokers:     cfg.KafkaBrokers,
-		KafkaGroupID:     cfg.KafkaConsumerGroup,
-		GRPCAddress:      ":" + cfg.GRpcPort,
-		WSPort:           cfg.WSPort,
-		JaegerHost:       cfg.JaegerHost,
-		JaegerPort:       strconv.Itoa(cfg.JaegerPort),
-		EmailRateLimit:   float64(cfg.EmailRateLimit),
-		EmailBurstLimit:  cfg.EmailBurstLimit,
-		KafkaWorkers:     cfg.KafkaWorkers,
-		KafkaRetries:     cfg.KafkaRetries,
-		TemplateBasePath: cfg.TemplateBasePath,
-		JWTSecret:        cfg.JWTSecret,
+		ServiceName:       cfg.ServiceName,
+		ServiceVersion:    cfg.ServiceVersion,
+		Environment:       cfg.Environment,
+		DatabaseDSN:       cfg.DatabaseDSN,
+		RedisAddr:         cfg.RedisAddr,
+		SMTPHost:          cfg.SMTPHost,
+		SMTPPort:          strconv.Itoa(cfg.SMTPPort),
+		SMTPUsername:      cfg.SMTPUsername,
+		SMTPPassword:      cfg.SMTPPassword,
+		KafkaBrokers:      cfg.KafkaBrokers,
+		KafkaGroupID:      cfg.KafkaConsumerGroup,
+		GRPCAddress:       ":" + cfg.GRpcPort,
+		WSPort:            cfg.WSPort,
+		CollectorEndpoint: cfg.OTELP_ENDPOINT,
+		EmailRateLimit:    float64(cfg.EmailRateLimit),
+		EmailBurstLimit:   cfg.EmailBurstLimit,
+		KafkaWorkers:      cfg.KafkaWorkers,
+		KafkaRetries:      cfg.KafkaRetries,
+		TemplateBasePath:  cfg.TemplateBasePath,
+		JWTSecret:         cfg.JWTSecret,
 	}
 
 	container, err := di.NewContainer(diCfg)
@@ -60,17 +57,15 @@ func main() {
 		zap.String("version", cfg.ServiceVersion),
 		zap.String("environment", cfg.Environment))
 
-	metrics.InitMetrics()
-
 	healthChecker := health.NewHealthChecker(
 		container.DB,
-		nil, 
+		nil,
 		logger,
 		cfg.ServiceName,
 		cfg.ServiceVersion,
 	)
 	go func() {
-		if err := startHealthServer(cfg.HealthPort, healthChecker); err != nil {
+		if err := startHealthServer(cfg.HealthPort, healthChecker, container); err != nil {
 			logger.Error("Health server failed", zap.Error(err))
 		}
 	}()
@@ -101,13 +96,13 @@ func main() {
 	logger.Info("Service stopped gracefully")
 }
 
-func startHealthServer(port string, healthChecker *health.HealthChecker) error {
+func startHealthServer(port string, healthChecker *health.HealthChecker, container *di.Container) error {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("/health", healthChecker.LivenessHandler)
 	mux.HandleFunc("/ready", healthChecker.ReadinessHandler)
 	// Metrics endpoint
-	mux.Handle("/metrics", promhttp.Handler())
+	mux.Handle("/metrics", container.Metrics.Handler())
 
 	server := &http.Server{
 		Addr:         ":" + port,
