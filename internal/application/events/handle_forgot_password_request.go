@@ -9,7 +9,7 @@ import (
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
 	domain_events "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/events"
 	repository "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/repositories"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 type ForgotPasswordEventHandler struct {
@@ -17,7 +17,7 @@ type ForgotPasswordEventHandler struct {
 	notificationRepo repository.NotificationRepository
 	messageBroker    ports.MessageBroker
 	emailSender      ports.EmailSender[ports.NotificationLike]
-	logger           *zap.Logger
+	logger           ports.LoggerService
 }
 
 func NewForgotPasswordEventHandler(
@@ -25,7 +25,7 @@ func NewForgotPasswordEventHandler(
 	notificationRepo repository.NotificationRepository,
 	messageBroker ports.MessageBroker,
 	emailSender ports.EmailSender[ports.NotificationLike],
-	logger *zap.Logger,
+	logger ports.LoggerService,
 ) *ForgotPasswordEventHandler {
 	return &ForgotPasswordEventHandler{
 		renderer:         renderer,
@@ -40,13 +40,13 @@ func NewForgotPasswordEventHandler(
 func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte) error {
 	var event domain_events.ForgotPasswordRequestEvent
 	if err := json.Unmarshal(message, &event); err != nil {
-		s.logger.Error("Failed to unmarshal ForgotPasswordRequestEvent", zap.Error(err))
+		s.logger.Error("Failed to unmarshal ForgotPasswordRequestEvent", logger.Error(err))
 		return fmt.Errorf("invalid forgot-password-request event json: %w", err)
 	}
 
 	// Validate event fields
 	if err := event.Payload.Validate(); err != nil {
-		s.logger.Error("Invalid forgot-password-request event", zap.Error(err))
+		s.logger.Error("Invalid forgot-password-request event", logger.Error(err))
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
@@ -54,12 +54,12 @@ func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte)
 	if s.notificationRepo != nil && event.EventID != "" {
 		alreadyProcessed, err := s.notificationRepo.CheckIfProcessed(ctx, event.EventID)
 		if err != nil {
-			s.logger.Error("Failed to check idempotency for forgot password notification", zap.Error(err))
+			s.logger.Error("Failed to check idempotency for forgot password notification", logger.Error(err))
 			return fmt.Errorf("idempotency check failed: %w", err)
 		}
 		if alreadyProcessed {
 			s.logger.Info("Forgot password event already processed, skipping.",
-				zap.String("notification_id", event.EventID),
+				logger.String("notification_id", event.EventID),
 			)
 			return nil
 		}
@@ -74,7 +74,7 @@ func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte)
 		"EXPIRY_TIME": fmt.Sprintf("%d minutes", payload.Expiry),
 	})
 	if err != nil {
-		s.logger.Error("Failed to render forgot-password template", zap.String("username", payload.Username), zap.Error(err))
+		s.logger.Error("Failed to render forgot-password template", logger.String("username", payload.Username), logger.Error(err))
 		return fmt.Errorf("failed to render forgot password email template: %w", err)
 	}
 
@@ -90,8 +90,8 @@ func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte)
 	// Send email
 	if err := s.emailSender.Send(ctx, notification); err != nil {
 		s.logger.Error("Failed to send forgot password email",
-			zap.String("email", payload.Email),
-			zap.Error(err),
+			logger.String("email", payload.Email),
+			logger.Error(err),
 		)
 		return fmt.Errorf("failed to send forgot password email: %w", err)
 	}
@@ -99,15 +99,15 @@ func (s *ForgotPasswordEventHandler) Handle(ctx context.Context, message []byte)
 	// Mark processed if needed
 	if s.notificationRepo != nil && event.EventID != "" {
 		if err := s.notificationRepo.MarkAsProcessed(ctx, event.EventID); err != nil {
-			s.logger.Error("Failed to mark notification as processed", zap.Error(err))
+			s.logger.Error("Failed to mark notification as processed", logger.Error(err))
 			// Not a terminal error; log and continue
 		}
 	}
 
 	s.logger.Info("Forgot password email sent successfully",
-		zap.String("userId", payload.UserID),
-		zap.String("email", payload.Email),
-		zap.String("notification_id", event.EventID),
+		logger.String("userId", payload.UserID),
+		logger.String("email", payload.Email),
+		logger.String("notification_id", event.EventID),
 	)
 
 	return nil
