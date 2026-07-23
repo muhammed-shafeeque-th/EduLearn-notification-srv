@@ -6,24 +6,22 @@ import (
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/services"
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
-	ws "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/interfaces/websocket"
-	"go.uber.org/zap"
 )
 
 type NotificationProcessor struct {
 	NotificationSender    ports.NotificationSender
 	EmailOTPService       *services.EmailOTPService
 	ForgotPasswordService *services.ForgotPasswordService
-	WSHub                 *ws.Hub
-	Logger                *zap.Logger
+	WSHub                 ports.WsHubAdaptor
+	Logger                ports.LoggerService
 }
 
 func NewNotificationProcessor(
 	NotificationSender ports.NotificationSender,
 	EmailOTPService *services.EmailOTPService,
 	ForgotPasswordService *services.ForgotPasswordService,
-	WSHub *ws.Hub,
-	Logger *zap.Logger) ports.NotificationProcessor {
+	WSHub ports.WsHubAdaptor,
+	Logger ports.LoggerService) ports.NotificationProcessor {
 
 	return &NotificationProcessor{
 		NotificationSender:    NotificationSender,
@@ -35,5 +33,5 @@ func NewNotificationProcessor(
 }
 
 func (np *NotificationProcessor) Process(ctx context.Context, notification *entity.Notification) error {
- return nil
+	return nil
 }

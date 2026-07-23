@@ -10,7 +10,7 @@ import (
 
 	"github.com/IBM/sarama"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
-	"go.uber.org/zap"
+	log "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 // ConsumerConfig defines the configuration for the consumer, including both
@@ -35,7 +35,7 @@ func DefaultConsumerConfig() ConsumerConfig {
 // Consumer abstracts kafka consumption and concurrency controls.
 type Consumer struct {
 	consumerGroup sarama.ConsumerGroup
-	logger        *zap.Logger
+	logger        ports.LoggerService
 	config        ConsumerConfig
 
 	// shutdown/synchronization
@@ -54,7 +54,7 @@ type Consumer struct {
 func NewConsumer(
 	brokers []string,
 	groupID string,
-	logger *zap.Logger,
+	logger ports.LoggerService,
 	config ConsumerConfig,
 ) (*Consumer, error) {
 	saramaConfig := sarama.NewConfig()
@@ -65,7 +65,7 @@ func NewConsumer(
 
 	cg, err := sarama.NewConsumerGroup(brokers, groupID, saramaConfig)
 	if err != nil {
-		logger.Error("Failed to create Kafka consumer group", zap.Error(err))
+		logger.Error("Failed to create Kafka consumer group", log.Error(err))
 		return nil, fmt.Errorf("failed to create kafka consumer group: %w", err)
 	}
 
@@ -166,7 +166,7 @@ func (c *Consumer) startSubscription(ctx context.Context, topics []string, adapt
 			}
 			err := c.consumerGroup.Consume(consumeCtx, topics, adapter)
 			if err != nil && err != context.Canceled {
-				c.logger.Error("Consumer group error", zap.Error(err))
+				c.logger.Error("Consumer group error", log.Error(err))
 				select {
 				case c.errorsCh <- err:
 				default:
@@ -181,7 +181,7 @@ func (c *Consumer) startSubscription(ctx context.Context, topics []string, adapt
 		for {
 			select {
 			case err := <-c.consumerGroup.Errors():
-				c.logger.Error("Kafka consumer group error", zap.Error(err))
+				c.logger.Error("Kafka consumer group error", log.Error(err))
 			case <-c.closeCh:
 				return
 			}
@@ -193,14 +193,14 @@ func (c *Consumer) startSubscription(ctx context.Context, topics []string, adapt
 		for {
 			select {
 			case err := <-c.errorsCh:
-				c.logger.Error("Kafka consumer (application) error", zap.Error(err))
+				c.logger.Error("Kafka consumer (application) error", log.Error(err))
 			case <-c.closeCh:
 				return
 			}
 		}
 	}()
 
-	c.logger.Info("Kafka subscription started", zap.Strings("topics", topics))
+	c.logger.Info("Kafka subscription started", log.Strings("topics", topics))
 	return nil
 }
 
@@ -214,7 +214,7 @@ func (c *Consumer) Close() error {
 		close(c.errorsCh)
 	})
 	if err != nil {
-		c.logger.Error("Failed to close consumer group", zap.Error(err))
+		c.logger.Error("Failed to close consumer group", log.Error(err))
 		return err
 	}
 	c.logger.Info("Kafka consumer closed")
@@ -227,7 +227,7 @@ func (c *Consumer) Close() error {
 
 type handlerAdapter struct {
 	topicHandlers map[string][]ports.MessageHandler // topic -> handler slice
-	logger        *zap.Logger
+	logger        ports.LoggerService
 	config        ConsumerConfig
 	jobs          chan *sarama.ConsumerMessage
 	ctx           context.Context
@@ -238,7 +238,7 @@ type handlerAdapter struct {
 
 func newHandlerAdapter(
 	topicHandlers map[string][]ports.MessageHandler,
-	logger *zap.Logger,
+	logger ports.LoggerService,
 	config ConsumerConfig,
 	ctx context.Context,
 	errorsCh chan error,
@@ -272,12 +272,12 @@ func (h *handlerAdapter) Cleanup(sarama.ConsumerGroupSession) error {
 // ConsumeClaim runs for each partition/claim in its own goroutine per rebalance cycle
 func (h *handlerAdapter) ConsumeClaim(session sarama.ConsumerGroupSession, claim sarama.ConsumerGroupClaim) error {
 	for msg := range claim.Messages() {
-	// 	h.logger.Info("MESSAGE RECEIVED",
-	// 	zap.String("topic", msg.Topic),
-	// 	zap.String("value", string(msg.Value)),
-	// 	zap.Int32("partition", msg.Partition),
-	// 	zap.Int64("offset", msg.Offset),
-	// )
+		// 	h.logger.Info("MESSAGE RECEIVED",
+		// 	logger.String("topic", msg.Topic),
+		// 	logger.String("value", string(msg.Value)),
+		// 	logger.Int32("partition", msg.Partition),
+		// 	logger.Int64("offset", msg.Offset),
+		// )
 		select {
 		case h.jobs <- msg:
 		case <-h.ctx.Done():
@@ -305,9 +305,9 @@ func (h *handlerAdapter) worker() {
 			handlers := h.topicHandlers[msg.Topic]
 			if len(handlers) == 0 {
 				h.logger.Warn("No handlers registered for topic",
-					zap.String("topic", msg.Topic),
-					zap.Int32("partition", msg.Partition),
-					zap.Int64("offset", msg.Offset))
+					log.String("topic", msg.Topic),
+					log.Int32("partition", msg.Partition),
+					log.Int64("offset", msg.Offset))
 				continue
 			}
 			var wg sync.WaitGroup
@@ -338,12 +338,12 @@ func (h *handlerAdapter) executeHandler(handler ports.MessageHandler, msg *saram
 		}
 		lastErr = err
 		h.logger.Warn("Handler processing failed, will retry if allowed",
-			zap.Int("attempt", attempt),
-			zap.Int("handler_index", handlerIndex),
-			zap.String("topic", msg.Topic),
-			zap.Int32("partition", msg.Partition),
-			zap.Int64("offset", msg.Offset),
-			zap.Error(err),
+			log.Int("attempt", attempt),
+			log.Int("handler_index", handlerIndex),
+			log.String("topic", msg.Topic),
+			log.Int32("partition", msg.Partition),
+			log.Int64("offset", msg.Offset),
+			log.Error(err),
 		)
 		if attempt < h.config.Retries {
 			time.Sleep(h.config.RetryDelay * time.Duration(attempt))
@@ -357,11 +357,11 @@ func (h *handlerAdapter) reportHandlerError(err error, msg *sarama.ConsumerMessa
 		return
 	}
 	h.logger.Error("Message handling failed after retries",
-		zap.Int("handler_index", handlerIndex),
-		zap.String("topic", msg.Topic),
-		zap.Int32("partition", msg.Partition),
-		zap.Int64("offset", msg.Offset),
-		zap.Error(err),
+		log.Int("handler_index", handlerIndex),
+		log.String("topic", msg.Topic),
+		log.Int32("partition", msg.Partition),
+		log.Int64("offset", msg.Offset),
+		log.Error(err),
 	)
 	select {
 	case h.errorsCh <- err:

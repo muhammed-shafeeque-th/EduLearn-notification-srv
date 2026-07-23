@@ -4,15 +4,16 @@ import (
 	"context"
 
 	"github.com/IBM/sarama"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
+	log "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 type Producer struct {
 	producer sarama.SyncProducer
-	logger   *zap.Logger
+	logger   ports.LoggerService
 }
 
-func NewProducer(brokers []string, logger *zap.Logger) (*Producer, error) {
+func NewProducer(brokers []string, logger ports.LoggerService) (*Producer, error) {
 	cfg := sarama.NewConfig()
 	cfg.Producer.RequiredAcks = sarama.WaitForAll
 	cfg.Producer.Retry.Max = 5
@@ -20,7 +21,7 @@ func NewProducer(brokers []string, logger *zap.Logger) (*Producer, error) {
 
 	prod, err := sarama.NewSyncProducer(brokers, cfg)
 	if err != nil {
-		logger.Error("failed to create kafka producer", zap.Error(err))
+		logger.Error("failed to create kafka producer", log.Error(err))
 		return nil, err
 	}
 	return &Producer{producer: prod, logger: logger}, nil
@@ -37,7 +38,7 @@ func (p *Producer) Produce(ctx context.Context, topic string, value []byte) erro
 	default:
 		_, _, err := p.producer.SendMessage(msg)
 		if err != nil {
-			p.logger.Error("failed to send kafka message", zap.String("topic", topic), zap.Error(err))
+			p.logger.Error("failed to send kafka message", log.String("topic", topic), log.Error(err))
 			return err
 		}
 		return nil
@@ -55,7 +56,7 @@ func (p *Producer) ProduceWithKey(ctx context.Context, topic string, key string,
 	default:
 		_, _, err := p.producer.SendMessage(msg)
 		if err != nil {
-			p.logger.Error("failed to send kafka message", zap.String("topic", topic), zap.Error(err))
+			p.logger.Error("failed to send kafka message", log.String("topic", topic), log.Error(err))
 			return err
 		}
 		return nil
@@ -64,7 +65,7 @@ func (p *Producer) ProduceWithKey(ctx context.Context, topic string, key string,
 
 func (p *Producer) Close() error {
 	if err := p.producer.Close(); err != nil {
-		p.logger.Error("failed to close kafka producer", zap.Error(err))
+		p.logger.Error("failed to close kafka producer", log.Error(err))
 		return err
 	}
 	return nil

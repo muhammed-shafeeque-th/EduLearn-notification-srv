@@ -11,14 +11,14 @@ import (
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
 	domain_events "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/events"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 // MessageBrokerAdapter implements ports.MessageBroker using Kafka
 type MessageBrokerAdapter struct {
 	producer       *Producer
 	consumer       *Consumer
-	logger         *zap.Logger
+	logger         ports.LoggerService
 	publishMetrics *PublishMetrics
 	mu             sync.RWMutex
 }
@@ -35,9 +35,9 @@ type PublishMetrics struct {
 // NewMessageBrokerAdapter creates a new Kafka message broker adapter
 func NewMessageBrokerAdapter(producer *Producer, consumer *Consumer) ports.MessageBroker {
 	logger := producer.logger
-	if logger == nil {
-		logger = zap.NewNop()
-	}
+	// if logger == nil {
+	// 	logger = logger.NewNop()
+	// }
 	return &MessageBrokerAdapter{
 		consumer:       consumer,
 		producer:       producer,
@@ -55,17 +55,17 @@ func (a *MessageBrokerAdapter) Publish(ctx context.Context, topic string, messag
 		return errors.New("message must not be empty")
 	}
 
-	a.logger.Debug("Publishing message", zap.String("topic", topic), zap.Int("size", len(message)))
+	a.logger.Debug("Publishing message", logger.String("topic", topic), logger.Int("size", len(message)))
 	err := a.producer.Produce(ctx, topic, message)
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if err != nil {
 		a.publishMetrics.FailedPublished++
-		a.logger.Error("Failed to publish message", zap.String("topic", topic), zap.Error(err))
+		a.logger.Error("Failed to publish message", logger.String("topic", topic), logger.Error(err))
 		return fmt.Errorf("failed to publish message: %w", err)
 	}
 	a.publishMetrics.TotalPublished++
-	a.logger.Debug("Message published successfully", zap.String("topic", topic))
+	a.logger.Debug("Message published successfully", logger.String("topic", topic))
 	return nil
 }
 
@@ -93,13 +93,13 @@ func (a *MessageBrokerAdapter) StartConsuming(ctx context.Context) error {
 
 func (a *MessageBrokerAdapter) PublishOTPVerifiedEvent(ctx context.Context, event *domain_events.OTPVerifiedEvent) error {
 	a.logger.Info("Publishing OTP verified event",
-		zap.String("user_id", event.Payload.UserID),
-		zap.String("email", event.Payload.Email),
-		zap.String("status", event.Payload.Status),
+		logger.String("user_id", event.Payload.UserID),
+		logger.String("email", event.Payload.Email),
+		logger.String("status", event.Payload.Status),
 	)
 
 	if err := a.validateOTPVerifiedEvent(&event.Payload); err != nil {
-		a.logger.Error("Invalid OTP verified event", zap.Error(err))
+		a.logger.Error("Invalid OTP verified event", logger.Error(err))
 		return fmt.Errorf("invalid event: %w", err)
 	}
 
@@ -109,7 +109,7 @@ func (a *MessageBrokerAdapter) PublishOTPVerifiedEvent(ctx context.Context, even
 
 	data, err := json.Marshal(event)
 	if err != nil {
-		a.logger.Error("Failed to marshal OTP verified event", zap.String("user_id", event.Payload.UserID), zap.Error(err))
+		a.logger.Error("Failed to marshal OTP verified event", logger.String("user_id", event.Payload.UserID), logger.Error(err))
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
@@ -118,23 +118,23 @@ func (a *MessageBrokerAdapter) PublishOTPVerifiedEvent(ctx context.Context, even
 	defer a.mu.Unlock()
 	if err != nil {
 		a.publishMetrics.FailedPublished++
-		a.logger.Error("Failed to publish OTP verified event", zap.String("user_id", event.Payload.UserID), zap.Error(err))
+		a.logger.Error("Failed to publish OTP verified event", logger.String("user_id", event.Payload.UserID), logger.Error(err))
 		return fmt.Errorf("failed to publish event: %w", err)
 	}
 	a.publishMetrics.TotalPublished++
 	a.publishMetrics.OTPEvents++
-	a.logger.Info("OTP verified event published successfully", zap.String("user_id", event.Payload.UserID), zap.String("email", event.Payload.Email))
+	a.logger.Info("OTP verified event published successfully", logger.String("user_id", event.Payload.UserID), logger.String("email", event.Payload.Email))
 	return nil
 }
 
 func (a *MessageBrokerAdapter) PublishNotificationEvent(ctx context.Context, event domain_events.NotificationEvent) error {
 	a.logger.Info("Publishing notification event",
-		zap.String("notification_id", event.Payload.ID),
-		zap.String("user_id", event.Payload.UserID),
-		zap.String("type", string(event.Payload.Type)))
+		logger.String("notification_id", event.Payload.ID),
+		logger.String("user_id", event.Payload.UserID),
+		logger.String("type", string(event.Payload.Type)))
 
 	if err := a.validateNotificationEvent(event.Payload); err != nil {
-		a.logger.Error("Invalid notification event", zap.Error(err))
+		a.logger.Error("Invalid notification event", logger.Error(err))
 		return fmt.Errorf("invalid event: %w", err)
 	}
 
@@ -145,7 +145,7 @@ func (a *MessageBrokerAdapter) PublishNotificationEvent(ctx context.Context, eve
 	data, err := json.Marshal(event)
 	if err != nil {
 		a.logger.Error("Failed to marshal notification event",
-			zap.String("notification_id", event.Payload.ID), zap.Error(err))
+			logger.String("notification_id", event.Payload.ID), logger.Error(err))
 		return fmt.Errorf("failed to marshal event: %w", err)
 	}
 
@@ -157,17 +157,17 @@ func (a *MessageBrokerAdapter) PublishNotificationEvent(ctx context.Context, eve
 	if err != nil {
 		a.publishMetrics.FailedPublished++
 		a.logger.Error("Failed to publish notification event",
-			zap.String("notification_id", event.Payload.ID),
-			zap.String("topic", topic),
-			zap.Error(err))
+			logger.String("notification_id", event.Payload.ID),
+			logger.String("topic", topic),
+			logger.Error(err))
 		return fmt.Errorf("failed to publish event: %w", err)
 	}
 	a.publishMetrics.TotalPublished++
 	a.publishMetrics.NotificationEvents++
 	a.logger.Info("Notification event published successfully",
-		zap.String("notification_id", event.Payload.ID),
-		zap.String("user_id", event.Payload.UserID),
-		zap.String("topic", topic),
+		logger.String("notification_id", event.Payload.ID),
+		logger.String("user_id", event.Payload.UserID),
+		logger.String("topic", topic),
 	)
 	return nil
 }
@@ -175,8 +175,8 @@ func (a *MessageBrokerAdapter) PublishNotificationEvent(ctx context.Context, eve
 // Close closes the message broker and underlying producer
 func (a *MessageBrokerAdapter) Close() error {
 	a.logger.Info("Closing message broker",
-		zap.Int64("total_published", a.publishMetrics.TotalPublished),
-		zap.Int64("failed", a.publishMetrics.FailedPublished))
+		logger.Int64("total_published", a.publishMetrics.TotalPublished),
+		logger.Int64("failed", a.publishMetrics.FailedPublished))
 	if a.producer != nil {
 		return a.producer.Close()
 	}
@@ -233,7 +233,7 @@ func (a *MessageBrokerAdapter) notificationTypeToTopic(notificationType entity.N
 		return string(domain_events.TopicNotificationInAppChannel)
 	default:
 		a.logger.Warn("Unknown notification type, defaulting to email",
-			zap.String("type", string(notificationType)))
+			logger.String("type", string(notificationType)))
 		return string(domain_events.TopicNotificationEmailChannel)
 	}
 }
@@ -241,8 +241,8 @@ func (a *MessageBrokerAdapter) notificationTypeToTopic(notificationType entity.N
 // PublishNotification is a convenience method to publish notification directly
 func (a *MessageBrokerAdapter) PublishNotification(ctx context.Context, notification entity.Notification) error {
 	a.logger.Debug("Publishing notification",
-		zap.String("notification_id", notification.ID),
-		zap.String("type", string(notification.Type)))
+		logger.String("notification_id", notification.ID),
+		logger.String("type", string(notification.Type)))
 
 	if err := notification.Validate(); err != nil {
 		return fmt.Errorf("invalid notification: %w", err)
@@ -262,12 +262,12 @@ func (a *MessageBrokerAdapter) PublishBatch(ctx context.Context, messages map[st
 		return nil
 	}
 
-	a.logger.Info("Publishing batch of messages", zap.Int("count", len(messages)))
+	a.logger.Info("Publishing batch of messages", logger.Int("count", len(messages)))
 
 	var failedCount int
 	for topic, message := range messages {
 		if err := a.Publish(ctx, topic, message); err != nil {
-			a.logger.Error("Failed to publish message in batch", zap.String("topic", topic), zap.Error(err))
+			a.logger.Error("Failed to publish message in batch", logger.String("topic", topic), logger.Error(err))
 			failedCount++
 		}
 	}
@@ -276,7 +276,7 @@ func (a *MessageBrokerAdapter) PublishBatch(ctx context.Context, messages map[st
 		return fmt.Errorf("batch publish completed with %d failures out of %d", failedCount, len(messages))
 	}
 
-	a.logger.Info("Batch messages published successfully", zap.Int("count", len(messages)))
+	a.logger.Info("Batch messages published successfully", logger.Int("count", len(messages)))
 	return nil
 }
 
@@ -302,10 +302,10 @@ func (p *Producer) ProduceWithRetry(ctx context.Context, topic string, message [
 		}
 		lastErr = err
 		p.logger.Warn("Failed to produce message, retrying",
-			zap.String("topic", topic),
-			zap.Int("attempt", attempt),
-			zap.Int("max_retries", maxRetries),
-			zap.Error(err),
+			logger.String("topic", topic),
+			logger.Int("attempt", attempt),
+			logger.Int("max_retries", maxRetries),
+			logger.Error(err),
 		)
 		if attempt < maxRetries {
 			backoff := time.Duration(attempt) * time.Second
@@ -328,7 +328,7 @@ func (a *MessageBrokerAdapter) Health() error {
 	testMessage := []byte(fmt.Sprintf(`{"type":"health_check","timestamp":"%s"}`, time.Now().Format(time.RFC3339)))
 	err := a.producer.Produce(ctx, "health-check", testMessage)
 	if err != nil {
-		a.logger.Error("Message broker health check failed", zap.Error(err))
+		a.logger.Error("Message broker health check failed", logger.Error(err))
 		return fmt.Errorf("message broker unhealthy: %w", err)
 	}
 	return nil

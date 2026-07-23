@@ -9,7 +9,8 @@ import (
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain"
 	repository "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/repositories"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/utils"
-	"go.uber.org/zap"
+		"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
+
 )
 
 // ------------------- Detailed MessageHandler Best Practices Example -------------------
@@ -22,7 +23,7 @@ import (
 func NotificationMessageHandler(
 	processor ports.NotificationProcessor,
 	repo repository.NotificationRepository,
-	logger *zap.Logger,
+	logger ports.LoggerService,
 ) ports.MessageHandler {
 	return func(ctx context.Context, msg []byte) error {
 		// Example: parse topic from context if available, or embed topic in msg wrapper
@@ -39,21 +40,21 @@ func NotificationMessageHandler(
 			case "otp-request":
 				var otpReq OTPRequest
 				if err := json.Unmarshal(msg, &otpReq); err != nil {
-					logger.Error("Failed to unmarshal OTPRequest", zap.Error(err))
+					logger.Error("Failed to unmarshal OTPRequest", logger.Error(err))
 					return fmt.Errorf("invalid OTP request json: %w", err)
 				}
 				notification = otpReq.ToNotification()
 			case "forgot-password-request":
 				var fpReq ForgotPasswordRequest
 				if err := json.Unmarshal(msg, &fpReq); err != nil {
-					logger.Error("Failed to unmarshal ForgotPasswordRequest", zap.Error(err))
+					logger.Error("Failed to unmarshal ForgotPasswordRequest", logger.Error(err))
 					return fmt.Errorf("invalid forgot-password request json: %w", err)
 				}
 				notification = fpReq.ToNotification()
 			default:
 				var notif domain.Notification
 				if err := json.Unmarshal(msg, &notif); err != nil {
-					logger.Error("Failed to unmarshal Notification", zap.Error(err))
+					logger.Error("Failed to unmarshal Notification", logger.Error(err))
 					return fmt.Errorf("invalid notification json: %w", err)
 				}
 				notification = &notif
@@ -61,7 +62,7 @@ func NotificationMessageHandler(
 		} else {
 			var notif domain.Notification
 			if err := json.Unmarshal(msg, &notif); err != nil {
-				logger.Error("Failed to unmarshal Notification fallback", zap.Error(err))
+				logger.Error("Failed to unmarshal Notification fallback", logger.Error(err))
 				return fmt.Errorf("invalid notification json: %w", err)
 			}
 			notification = &notif
@@ -73,7 +74,7 @@ func NotificationMessageHandler(
 
 		// Validate notification
 		if err := notification.Validate(); err != nil {
-			logger.Error("Invalid notification", zap.Error(err))
+			logger.Error("Invalid notification", logger.Error(err))
 			return fmt.Errorf("validation failed: %w", err)
 		}
 
@@ -81,12 +82,12 @@ func NotificationMessageHandler(
 		if repo != nil {
 			processed, err := repo.CheckIfProcessed(ctx, notification.ID)
 			if err != nil {
-				logger.Error("Failed to check idempotency", zap.Error(err))
+				logger.Error("Failed to check idempotency", logger.Error(err))
 				return fmt.Errorf("failed idempotency check: %w", err)
 			}
 			if processed {
 				logger.Info("Message already processed, skipping",
-					zap.String("notification_id", notification.ID),
+					logger.String("notification_id", notification.ID),
 				)
 				return nil
 			}
@@ -95,7 +96,7 @@ func NotificationMessageHandler(
 		// Main business processing
 		if processor != nil {
 			if err := processor.Process(ctx, notification); err != nil {
-				logger.Error("Processing notification failed", zap.Error(err))
+				logger.Error("Processing notification failed", logger.Error(err))
 				return fmt.Errorf("processing failed: %w", err)
 			}
 		}
@@ -103,13 +104,13 @@ func NotificationMessageHandler(
 		// Mark as processed after successful business
 		if repo != nil {
 			if err := repo.MarkAsProcessed(ctx, notification.ID); err != nil {
-				logger.Error("Failed to mark as processed", zap.Error(err))
+				logger.Error("Failed to mark as processed", logger.Error(err))
 				// Not a terminal failure for handler
 			}
 		}
 
 		logger.Info("Notification processed successfully",
-			zap.String("notification_id", notification.ID),
+			logger.String("notification_id", notification.ID),
 		)
 		return nil
 	}
