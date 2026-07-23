@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
+	log "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -14,7 +15,6 @@ import (
 type ErrorType string
 
 const (
-	
 	ErrorTypeValidation   ErrorType = "VALIDATION_ERROR"
 	ErrorTypeNotFound     ErrorType = "NOT_FOUND"
 	ErrorTypeUnauthorized ErrorType = "UNAUTHORIZED"
@@ -253,27 +253,27 @@ func fromGRPCStatus(st *status.Status) *ServiceError {
 }
 
 // Error logging helper
-func LogError(ctx context.Context, logger *zap.Logger, err error, fields ...zap.Field) {
+func LogError(ctx context.Context, logger ports.LoggerService, err error, fields ...log.Field) {
 	serviceErr := FromError(err)
 
 	// Add error-specific fields
-	errorFields := []zap.Field{
-		zap.String("error_type", string(serviceErr.Type)),
-		zap.String("error_code", serviceErr.Code),
-		zap.String("error_message", serviceErr.Message),
+	errorFields := []log.Field{
+		log.String("error_type", string(serviceErr.Type)),
+		log.String("error_code", serviceErr.Code),
+		log.String("error_message", serviceErr.Message),
 	}
 
 	if serviceErr.Details != "" {
-		errorFields = append(errorFields, zap.String("error_details", serviceErr.Details))
+		errorFields = append(errorFields, log.String("error_details", serviceErr.Details))
 	}
 
 	if serviceErr.RequestID != "" {
-		errorFields = append(errorFields, zap.String("request_id", serviceErr.RequestID))
+		errorFields = append(errorFields, log.String("request_id", serviceErr.RequestID))
 	}
 
 	// Add original error if different from service error
 	if serviceErr.Err != nil && serviceErr.Err != err {
-		errorFields = append(errorFields, zap.Error(serviceErr.Err))
+		errorFields = append(errorFields, log.Error(serviceErr.Err))
 	}
 
 	// Add additional fields

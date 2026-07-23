@@ -55,8 +55,7 @@ type Config struct {
 
 	// Observability
 	LokiURL    string `envconfig:"LOKI_URL" default:"http://loki:3100"`
-	JaegerHost string `envconfig:"JAEGER_HOST" default:"jaeger"`
-	JaegerPort int    `envconfig:"JAEGER_PORT" default:"6831"`
+	OTELP_ENDPOINT string `envconfig:"OTELP_ENDPOINT" default:"http://otel-collection:4317"`
 }
 
 func LoadConfig() (*Config, error) {

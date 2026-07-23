@@ -5,11 +5,13 @@ import (
 	"time"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/services"
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
-	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/metrics"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/observability/metrics"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/proto/proto"
-	"go.uber.org/zap"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -20,7 +22,7 @@ type Handler struct {
 	notificationService   *services.NotificationService
 	emailOtpService       *services.EmailOTPService
 	forgotPasswordService *services.ForgotPasswordService
-	logger                *zap.Logger
+	logger                ports.LoggerService
 	validator             *validator.Validate
 }
 
@@ -29,7 +31,7 @@ func NewHandler(
 	notificationService *services.NotificationService,
 	emailOtpService *services.EmailOTPService,
 	forgotPasswordService *services.ForgotPasswordService,
-	logger *zap.Logger,
+	logger ports.LoggerService,
 ) *Handler {
 	return &Handler{
 		notificationService:   notificationService,
@@ -43,7 +45,7 @@ func NewHandler(
 // validateRequest validates the incoming request using the validator package.
 func (h *Handler) validateRequest(req interface{}) error {
 	if err := h.validator.Struct(req); err != nil {
-		h.logger.Warn("Request validation failed", zap.Error(err))
+		h.logger.Warn("Request validation failed", logger.Error(err))
 		return status.Errorf(codes.InvalidArgument, "Invalid request data: %v", err)
 	}
 	return nil
@@ -85,7 +87,7 @@ func (h *Handler) SendOTP(ctx context.Context, req *proto.OTPRequest) (*proto.No
 	}
 	if err := h.emailOtpService.SendOTP(ctx, req.UserId, req.Email, req.Username); err != nil {
 
-		h.logger.Error("SendOTP failed", zap.String("userId", req.UserId), zap.String("email", req.Email), zap.Error(err))
+		h.logger.Error("SendOTP failed", logger.String("userId", req.UserId), logger.String("email", req.Email), logger.Error(err))
 		return h.createErrorResponse(codes.Internal, "Failed to send OTP", err.Error()), nil
 	}
 	metrics.OTPSentTotal.Inc()
@@ -99,13 +101,13 @@ func (h *Handler) VerifyOTP(ctx context.Context, req *proto.VerifyOTPRequest) (*
 	}
 	isValid, err := h.emailOtpService.VerifyOTP(ctx, req.Email, req.Otp)
 	if err != nil {
-		h.logger.Error("VerifyOTP failed", zap.String("email", req.Email), zap.Error(err))
+		h.logger.Error("VerifyOTP failed", logger.String("email", req.Email), logger.Error(err))
 		return h.createErrorResponse(codes.Internal, "Failed to verify OTP", err.Error()), nil
 	}
 	if !isValid {
 		return h.createErrorResponse(codes.InvalidArgument, "Invalid OTP"), nil
 	}
-	h.logger.Info("OTP verified", zap.String("email", req.Email))
+	h.logger.Info("OTP verified", logger.String("email", req.Email))
 	return h.createSuccessResponse("OTP verified successfully"), nil
 }
 
@@ -115,10 +117,10 @@ func (h *Handler) ForgotPassword(ctx context.Context, req *proto.ForgotPasswordR
 		return h.createErrorResponse(codes.InvalidArgument, "Invalid request data", err.Error()), nil
 	}
 	if err := h.forgotPasswordService.Send(ctx, req.UserId, req.Username, req.Email, req.ResetLink); err != nil {
-		h.logger.Error("ForgotPassword email failed", zap.String("userId", req.UserId), zap.String("email", req.Email), zap.Error(err))
+		h.logger.Error("ForgotPassword email failed", logger.String("userId", req.UserId), logger.String("email", req.Email), logger.Error(err))
 		return h.createErrorResponse(codes.Internal, "Failed to send password reset email", err.Error()), nil
 	}
-	h.logger.Info("Password reset email sent", zap.String("email", req.Email))
+	h.logger.Info("Password reset email sent", logger.String("email", req.Email))
 	return h.createSuccessResponse("Password reset email sent successfully"), nil
 }
 
@@ -137,7 +139,7 @@ func (h *Handler) GetNotification(ctx context.Context, req *proto.GetNotificatio
 	}
 	notification, err := h.notificationService.GetNotification(ctx, req.NotificationId, req.UserId)
 	if err != nil {
-		h.logger.Error("GetANotification failed", zap.String("userId", req.UserId), zap.String("notificationId", req.NotificationId), zap.Error(err))
+		h.logger.Error("GetANotification failed", logger.String("userId", req.UserId), logger.String("notificationId", req.NotificationId), logger.Error(err))
 		return &proto.GetNotificationResponse{
 			Result: &proto.GetNotificationResponse_Error{
 				Error: &proto.Error{
@@ -210,7 +212,7 @@ func (h *Handler) GetNotifications(ctx context.Context, req *proto.GetNotificati
 
 	notifications, total, err := h.notificationService.ListNotifications(ctx, req.UserId, page, pageSize, isRead, notificationCategory)
 	if err != nil {
-		h.logger.Error("GetNotifications failed", zap.String("userId", req.UserId), zap.Error(err))
+		h.logger.Error("GetNotifications failed", logger.String("userId", req.UserId), logger.Error(err))
 		return &proto.GetNotificationsResponse{
 			Result: &proto.GetNotificationsResponse_Error{
 				Error: &proto.Error{
@@ -256,7 +258,7 @@ func (h *Handler) MarkAsRead(ctx context.Context, req *proto.MarkNotificationReq
 		return h.createErrorResponse(codes.InvalidArgument, "Invalid request data", err.Error()), nil
 	}
 	if err := h.notificationService.MarkAsRead(ctx, req.NotificationId, req.UserId); err != nil {
-		h.logger.Error("MarkAsRead failed", zap.String("notificationId", req.NotificationId), zap.Error(err))
+		h.logger.Error("MarkAsRead failed", logger.String("notificationId", req.NotificationId), logger.Error(err))
 		return h.createErrorResponse(codes.Internal, "Failed to mark notification as read", err.Error()), nil
 	}
 	return h.createSuccessResponse("Notification marked as read"), nil
@@ -265,7 +267,7 @@ func (h *Handler) MarkAsRead(ctx context.Context, req *proto.MarkNotificationReq
 // DeleteNotification deletes notification with given ID and userID.
 func (h *Handler) DeleteNotification(ctx context.Context, req *proto.DeleteNotificationRequest) (*proto.DeleteNotificationResponse, error) {
 	if err := h.validateRequest(req); err != nil {
-		h.logger.Error("Validation failed", zap.String("notificationId", req.NotificationId), zap.String("userId", req.UserId), zap.Error(err))
+		h.logger.Error("Validation failed", logger.String("notificationId", req.NotificationId), logger.String("userId", req.UserId), logger.Error(err))
 		return &proto.DeleteNotificationResponse{
 			Result: &proto.DeleteNotificationResponse_Error{
 				Error: &proto.Error{
@@ -277,7 +279,7 @@ func (h *Handler) DeleteNotification(ctx context.Context, req *proto.DeleteNotif
 		}, nil
 	}
 	if err := h.notificationService.DeleteNotification(ctx, req.NotificationId, req.UserId); err != nil {
-		h.logger.Error("Failed  to delete notification", zap.String("notificationId", req.NotificationId), zap.String("userId", req.UserId), zap.Error(err))
+		h.logger.Error("Failed  to delete notification", logger.String("notificationId", req.NotificationId), logger.String("userId", req.UserId), logger.Error(err))
 		return &proto.DeleteNotificationResponse{
 			Result: &proto.DeleteNotificationResponse_Error{
 				Error: &proto.Error{
@@ -288,7 +290,7 @@ func (h *Handler) DeleteNotification(ctx context.Context, req *proto.DeleteNotif
 			},
 		}, nil
 	}
-	h.logger.Debug("Successfully deleted notification", zap.String("notificationId", req.NotificationId), zap.String("userId", req.UserId))
+	h.logger.Debug("Successfully deleted notification", logger.String("notificationId", req.NotificationId), logger.String("userId", req.UserId))
 	return &proto.DeleteNotificationResponse{
 		Result: &proto.DeleteNotificationResponse_Success{
 			Success: &proto.DeleteSuccess{
@@ -300,7 +302,7 @@ func (h *Handler) DeleteNotification(ctx context.Context, req *proto.DeleteNotif
 
 func (h *Handler) ClearNotifications(ctx context.Context, req *proto.ClearUserNotificationsRequest) (*proto.ClearUserNotificationsResponse, error) {
 	if err := h.validateRequest(req); err != nil {
-		h.logger.Error("Validation failed", zap.String("userId", req.UserId), zap.Error(err))
+		h.logger.Error("Validation failed", logger.String("userId", req.UserId), logger.Error(err))
 		return &proto.ClearUserNotificationsResponse{
 			Result: &proto.ClearUserNotificationsResponse_Error{
 				Error: &proto.Error{
@@ -312,7 +314,7 @@ func (h *Handler) ClearNotifications(ctx context.Context, req *proto.ClearUserNo
 		}, nil
 	}
 	if err := h.notificationService.ClearNotifications(ctx, req.UserId); err != nil {
-		h.logger.Error("Failed  to clear user notifications", zap.String("userId", req.UserId), zap.Error(err))
+		h.logger.Error("Failed  to clear user notifications", logger.String("userId", req.UserId), logger.Error(err))
 		return &proto.ClearUserNotificationsResponse{
 			Result: &proto.ClearUserNotificationsResponse_Error{
 				Error: &proto.Error{
@@ -323,7 +325,7 @@ func (h *Handler) ClearNotifications(ctx context.Context, req *proto.ClearUserNo
 			},
 		}, nil
 	}
-	h.logger.Debug("Successfully cleared user notifications", zap.String("userId", req.UserId))
+	h.logger.Debug("Successfully cleared user notifications", logger.String("userId", req.UserId))
 	return &proto.ClearUserNotificationsResponse{
 		Result: &proto.ClearUserNotificationsResponse_Success{
 			Success: &proto.DeleteSuccess{
@@ -339,7 +341,7 @@ func (h *Handler) MarkAllAsRead(ctx context.Context, req *proto.MarkAllNotificat
 		return h.createErrorResponse(codes.InvalidArgument, "Invalid request data", err.Error()), nil
 	}
 	if err := h.notificationService.MarkAllAsRead(ctx, req.UserId); err != nil {
-		h.logger.Error("MarkAllAsRead failed", zap.String("userId", req.UserId), zap.Error(err))
+		h.logger.Error("MarkAllAsRead failed", logger.String("userId", req.UserId), logger.Error(err))
 		return h.createErrorResponse(codes.Internal, "Failed to mark all notifications as read", err.Error()), nil
 	}
 	return h.createSuccessResponse("All notifications marked as read"), nil

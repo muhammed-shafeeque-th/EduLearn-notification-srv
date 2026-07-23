@@ -10,7 +10,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	domain "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain"
@@ -130,7 +129,7 @@ func (m *mockWSHubAdaptor) Shutdown(ctx context.Context) error { return nil }
 
 func TestOTPRequestEventHandler_Handle_Success(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 
 	marked := false
 	saved := false
@@ -180,14 +179,14 @@ func TestOTPRequestEventHandler_Handle_Success(t *testing.T) {
 }
 
 func TestOTPRequestEventHandler_Handle_InvalidJSON(t *testing.T) {
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 	svc := NewOTPRequestEventHandler(nil, nil, nil, nil, nil, logger)
 	assert.Error(t, svc.Handle(context.Background(), []byte("not json")))
 }
 
 func TestForgotPasswordEventHandler_Handle_Success(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 
 	marked := false
 	renderer := &mockRenderer{
@@ -216,7 +215,7 @@ func TestForgotPasswordEventHandler_Handle_Success(t *testing.T) {
 }
 
 func TestForgotPasswordEventHandler_Handle_InvalidPayload(t *testing.T) {
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 	svc := NewForgotPasswordEventHandler(nil, nil, nil, nil, logger)
 
 	event := domain_events.ForgotPasswordRequestEvent{
@@ -229,7 +228,7 @@ func TestForgotPasswordEventHandler_Handle_InvalidPayload(t *testing.T) {
 }
 
 func TestHandleEmailNotificationChannel_Handle_Success(t *testing.T) {
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 	marked := false
 	repo := &mockNotificationRepo{
 		checkIfProcessedFn: func(ctx context.Context, id string) (bool, error) { return false, nil },
@@ -252,7 +251,7 @@ func TestHandleEmailNotificationChannel_Handle_Success(t *testing.T) {
 }
 
 func TestHandleEmailNotificationChannel_Handle_InvalidPayload(t *testing.T) {
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 	svc := NewHandleEmailNotificationChannel(nil, nil, logger)
 
 	event := domain_events.EmailNotificationEvent{
@@ -265,7 +264,7 @@ func TestHandleEmailNotificationChannel_Handle_InvalidPayload(t *testing.T) {
 }
 
 func TestInAppNotificationChannelHandler_Handle_HubWarnsButSucceeds(t *testing.T) {
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 	marked := false
 
 	repo := &mockNotificationRepo{

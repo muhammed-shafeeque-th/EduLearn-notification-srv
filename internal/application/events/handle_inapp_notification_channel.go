@@ -11,20 +11,20 @@ import (
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
 	domain_events "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/events"
 	repository "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/repositories"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 // InAppNotificationChannelHandler handles in-app notifications, including persistence and broadcasting.
 type InAppNotificationChannelHandler struct {
 	notificationRepo repository.NotificationRepository
 	hub              ports.WsHubAdaptor
-	logger           *zap.Logger
+	logger           ports.LoggerService
 }
 
 func NewInAppNotificationChannelHandler(
 	notificationRepo repository.NotificationRepository,
 	hub ports.WsHubAdaptor,
-	logger *zap.Logger,
+	logger ports.LoggerService,
 ) *InAppNotificationChannelHandler {
 	return &InAppNotificationChannelHandler{
 		notificationRepo: notificationRepo,
@@ -36,13 +36,13 @@ func NewInAppNotificationChannelHandler(
 func (h *InAppNotificationChannelHandler) Handle(ctx context.Context, message []byte) error {
 	var event domain_events.InAppNotificationEvent
 	if err := json.Unmarshal(message, &event); err != nil {
-		h.logger.Error("Failed to unmarshal InAppNotificationEvent", zap.Error(err))
+		h.logger.Error("Failed to unmarshal InAppNotificationEvent", logger.Error(err))
 		return fmt.Errorf("invalid InAppNotificationEvent JSON: %w", err)
 	}
 
 	// Validate incoming event
 	if err := event.Payload.Validate(); err != nil {
-		h.logger.Error("Invalid InAppNotificationEvent", zap.Error(err))
+		h.logger.Error("Invalid InAppNotificationEvent", logger.Error(err))
 		return fmt.Errorf("validation failed: %w", err)
 	}
 
@@ -50,12 +50,12 @@ func (h *InAppNotificationChannelHandler) Handle(ctx context.Context, message []
 	if h.notificationRepo != nil && event.EventID != "" {
 		alreadyProcessed, err := h.notificationRepo.CheckIfProcessed(ctx, event.EventID)
 		if err != nil {
-			h.logger.Error("Failed idempotency check for InApp notification", zap.Error(err))
+			h.logger.Error("Failed idempotency check for InApp notification", logger.Error(err))
 			return fmt.Errorf("idempotency check failed: %w", err)
 		}
 		if alreadyProcessed {
 			h.logger.Info("In-App notification event already processed, skipping.",
-				zap.String("notification_id", event.EventID),
+				logger.String("notification_id", event.EventID),
 			)
 			return nil
 		}
@@ -81,9 +81,9 @@ func (h *InAppNotificationChannelHandler) Handle(ctx context.Context, message []
 	if h.notificationRepo != nil {
 		if err := h.notificationRepo.SaveNotification(ctx, notification); err != nil {
 			h.logger.Error("Failed to save in-app notification",
-				zap.String("notification_id", notification.ID),
-				zap.String("user_id", notification.UserId),
-				zap.Error(err))
+				logger.String("notification_id", notification.ID),
+				logger.String("user_id", notification.UserId),
+				logger.Error(err))
 			return fmt.Errorf("failed to save notification: %w", err)
 		}
 	}
@@ -91,21 +91,21 @@ func (h *InAppNotificationChannelHandler) Handle(ctx context.Context, message []
 	wsMessage := buildWebSocketMessage(notification)
 	if err := h.hub.NotifyInAppMessage(wsMessage); err != nil {
 		h.logger.Warn("Failed to broadcast WebSocket message",
-			zap.String("notification_id", notification.ID),
-			zap.String("user_id", notification.UserId),
-			zap.Error(err))
+			logger.String("notification_id", notification.ID),
+			logger.String("user_id", notification.UserId),
+			logger.Error(err))
 	}
 
 	if h.notificationRepo != nil && event.EventID != "" {
 		if err := h.notificationRepo.MarkAsProcessed(ctx, event.EventID); err != nil {
-			h.logger.Error("Failed to mark notification as processed", zap.Error(err))
+			h.logger.Error("Failed to mark notification as processed", logger.Error(err))
 		}
 	}
 
 	h.logger.Info("In-app notification sent and broadcast",
-		zap.String("notification_id", notification.ID),
-		zap.String("user_id", notification.UserId),
-		zap.String("subject", notification.Subject))
+		logger.String("notification_id", notification.ID),
+		logger.String("user_id", notification.UserId),
+		logger.String("subject", notification.Subject))
 
 	return nil
 }

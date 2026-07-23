@@ -5,20 +5,24 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
+	log "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/exporters/jaeger"
+	// "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
-	"go.uber.org/zap"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type TracingConfig struct {
-	JaegerHost     string
-	JaegerPort     string
+	CollectorEndpoint string
+
 	ServiceName    string
 	ServiceVersion string
 	Environment    string
@@ -26,53 +30,91 @@ type TracingConfig struct {
 
 type Tracer struct {
 	tracer trace.Tracer
-	logger *zap.Logger
+
+	provider *sdktrace.TracerProvider
+
+	logger ports.LoggerService
 }
 
-func NewTracer(config TracingConfig, logger *zap.Logger) (*Tracer, error) {
-	// Create Jaeger exporter
-	jaegerEndpoint := fmt.Sprintf("http://%s:%s/api/traces", config.JaegerHost, config.JaegerPort)
-	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerEndpoint)))
+func NewTracer(config TracingConfig, logger ports.LoggerService) (*Tracer, error) {
+
+	ctx := context.Background()
+
+	conn, err := grpc.NewClient(
+		config.CollectorEndpoint,
+		grpc.WithTransportCredentials(insecure.NewCredentials()),
+	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create Jaeger exporter: %w", err)
+		return nil, fmt.Errorf("failed to connect OTEL Collector: %w", err)
 	}
 
-	// Create resource with service information
-	res, err := resource.New(context.Background(),
+	exporter, err := otlptracegrpc.New(
+		ctx,
+		otlptracegrpc.WithGRPCConn(conn),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
+	}
+
+	res, err := resource.New(
+		context.Background(),
 		resource.WithAttributes(
-			semconv.ServiceName(config.ServiceName),
-			semconv.ServiceVersion(config.ServiceVersion),
-			semconv.DeploymentEnvironment(config.Environment),
+			attribute.String("service.name", config.ServiceName),
+			attribute.String("service.version", config.ServiceVersion),
+			attribute.String("deployment.environment", config.Environment),
 		),
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create resource: %w", err)
+		return nil, fmt.Errorf("failed creating resource: %w", err)
 	}
 
-	// Create trace provider
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter,
-			sdktrace.WithBatchTimeout(5*time.Second),
-			sdktrace.WithMaxExportBatchSize(100),
+	provider := sdktrace.NewTracerProvider(
+
+		sdktrace.WithSampler(
+			sdktrace.ParentBased(
+				sdktrace.TraceIDRatioBased(1.0),
+			),
 		),
+
+		sdktrace.WithBatcher(
+			exporter,
+
+			sdktrace.WithBatchTimeout(5*time.Second),
+
+			sdktrace.WithExportTimeout(10*time.Second),
+
+			sdktrace.WithMaxExportBatchSize(512),
+
+			sdktrace.WithMaxQueueSize(2048),
+		),
+
 		sdktrace.WithResource(res),
 	)
 
-	// Set global trace provider
-	otel.SetTracerProvider(tp)
+	otel.SetTracerProvider(provider)
 
-	// Create tracer
-	tracer := tp.Tracer(config.ServiceName)
+	otel.SetTextMapPropagator(
+		propagation.NewCompositeTextMapPropagator(
+			propagation.TraceContext{},
+			propagation.Baggage{},
+		),
+	)
 
-	logger.Info("Tracing initialized",
-		zap.String("jaeger_endpoint", jaegerEndpoint),
-		zap.String("service_name", config.ServiceName),
-		zap.String("service_version", config.ServiceVersion),
+	tracer := provider.Tracer(config.ServiceName)
+
+	logger.Info(
+		"Tracing initialized",
+		log.String("exporter", "otlp"),
+		log.String("collector", config.CollectorEndpoint),
+		log.String("service", config.ServiceName),
+		log.String("version", config.ServiceVersion),
+		log.String("environment", config.Environment),
 	)
 
 	return &Tracer{
-		tracer: tracer,
-		logger: logger,
+		tracer:   tracer,
+		provider: provider,
+		logger:   logger,
 	}, nil
 }
 
@@ -81,9 +123,11 @@ func (t *Tracer) StartSpan(ctx context.Context, name string, opts ...trace.SpanS
 }
 
 func (t *Tracer) Shutdown(ctx context.Context) error {
+
 	if tp, ok := otel.GetTracerProvider().(*sdktrace.TracerProvider); ok {
 		return tp.Shutdown(ctx)
 	}
+
 	return nil
 }
 

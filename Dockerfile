@@ -1,7 +1,7 @@
 # -------- Stage 1: Build the Go binary --------
 # Switched to Debian-based Go image to bypass Alpine emulation bugs.
 # Git and ca-certificates are already installed in this image by default.
-FROM golang:1.24-bookworm AS builder
+FROM golang:1.25.0-bookworm AS builder
 
 # Enable Go modules and disable CGO for a statically linked binary
 ENV GO111MODULE=on \

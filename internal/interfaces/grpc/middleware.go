@@ -2,16 +2,16 @@ package grpc_interface
 
 import (
 	"context"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	grpc_prometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/errors"
-	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/observability/logging"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/observability/tracing"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 	"go.opentelemetry.io/otel/attribute"
-	"go.uber.org/zap"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -23,7 +23,7 @@ type MiddlewareConfig struct {
 	ServiceName    string
 	ServiceVersion string
 	Environment    string
-	Logger         *zap.Logger
+	Logger         ports.LoggerService
 	Tracer         *tracing.Tracer
 }
 
@@ -39,7 +39,7 @@ func CreateUnaryServerInterceptors(config MiddlewareConfig) []grpc.UnaryServerIn
 		tracingUnaryInterceptor(config),
 
 		// Logging interceptor
-		loggingUnaryInterceptor(config),
+		// loggingUnaryInterceptor(config),
 
 		// Metrics interceptor
 		grpc_prometheus.UnaryServerInterceptor,
@@ -63,7 +63,7 @@ func CreateStreamServerInterceptors(config MiddlewareConfig) []grpc.StreamServer
 		tracingStreamInterceptor(config),
 
 		// Logging interceptor
-		loggingStreamInterceptor(config),
+		// loggingStreamInterceptor(config),
 
 		// Metrics interceptor
 		grpc_prometheus.StreamServerInterceptor,
@@ -126,11 +126,11 @@ func chainStreamInterceptors(interceptors []grpc.StreamServerInterceptor) grpc.S
 }
 
 // Recovery handler for panics
-func recoveryHandler(logger *zap.Logger) recovery.RecoveryHandlerFunc {
+func recoveryHandler(log ports.LoggerService) recovery.RecoveryHandlerFunc {
 	return func(p interface{}) error {
-		logger.Error("Panic recovered in gRPC handler",
-			zap.Any("panic", p),
-			zap.String("stack", getStackTrace()),
+		log.Error("Panic recovered in gRPC handler",
+			logger.Any("panic", p),
+			logger.String("stack", getStackTrace()),
 		)
 		return status.Errorf(codes.Internal, "Internal server error")
 	}
@@ -215,94 +215,94 @@ func tracingStreamInterceptor(config MiddlewareConfig) grpc.StreamServerIntercep
 }
 
 // Logging interceptor for unary calls
-func loggingUnaryInterceptor(config MiddlewareConfig) grpc.UnaryServerInterceptor {
-	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
-		start := time.Now()
+// func loggingUnaryInterceptor(config MiddlewareConfig) grpc.UnaryServerInterceptor {
+// 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+// 		start := time.Now()
 
-		// Extract request ID
-		requestID := getRequestID(ctx)
+// 		// Extract request ID
+// 		requestID := getRequestID(ctx)
 
-		// Create request logger
-		reqLogger := logging.NewRequestLogger(
-			config.Logger,
-			"gRPC",
-			info.FullMethod,
-			getUserID(ctx),
-		).With(
-			zap.String("request_id", requestID),
-			zap.String("grpc_method", info.FullMethod),
-		)
+// 		// Create request logger
+// 		reqLogger := logging.NewRequestLogger(
+// 			config.Logger,
+// 			"gRPC",
+// 			info.FullMethod,
+// 			getUserID(ctx),
+// 		).With(
+// 			logger.String("request_id", requestID),
+// 			logger.String("grpc_method", info.FullMethod),
+// 		)
 
-		reqLogger.Info("gRPC request started")
+// 		reqLogger.Info("gRPC request started")
 
-		// Execute handler
-		resp, err := handler(ctx, req)
+// 		// Execute handler
+// 		resp, err := handler(ctx, req)
 
-		// Log response
-		duration := time.Since(start)
-		statusCode := codes.OK
-		if err != nil {
-			if st, ok := status.FromError(err); ok {
-				statusCode = st.Code()
-			} else {
-				statusCode = codes.Internal
-			}
-		}
+// 		// Log response
+// 		duration := time.Since(start)
+// 		statusCode := codes.OK
+// 		if err != nil {
+// 			if st, ok := status.FromError(err); ok {
+// 				statusCode = st.Code()
+// 			} else {
+// 				statusCode = codes.Internal
+// 			}
+// 		}
 
-		reqLogger.Info("gRPC request completed",
-			zap.Duration("duration", duration),
-			zap.String("status", statusCode.String()),
-			zap.Error(err),
-		)
+// 		reqLogger.Info("gRPC request completed",
+// 			logger.Duration("duration", duration),
+// 			logger.String("status", statusCode.String()),
+// 			logger.Error(err),
+// 		)
 
-		return resp, err
-	}
-}
+// 		return resp, err
+// 	}
+// }
 
 // Logging interceptor for stream calls
-func loggingStreamInterceptor(config MiddlewareConfig) grpc.StreamServerInterceptor {
-	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-		start := time.Now()
+// func loggingStreamInterceptor(config MiddlewareConfig) grpc.StreamServerInterceptor {
+// 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+// 		start := time.Now()
 
-		// Extract request ID
-		requestID := getRequestID(ss.Context())
+// 		// Extract request ID
+// 		requestID := getRequestID(ss.Context())
 
-		// Create request logger
-		reqLogger := logging.NewRequestLogger(
-			config.Logger,
-			"gRPC-Stream",
-			info.FullMethod,
-			getUserID(ss.Context()),
-		).With(
-			zap.String("request_id", requestID),
-			zap.String("grpc_method", info.FullMethod),
-		)
+// 		// Create request logger
+// 		reqLogger := logging.NewRequestLogger(
+// 			config.Logger,
+// 			"gRPC-Stream",
+// 			info.FullMethod,
+// 			getUserID(ss.Context()),
+// 		).With(
+// 			logger.String("request_id", requestID),
+// 			logger.String("grpc_method", info.FullMethod),
+// 		)
 
-		reqLogger.Info("gRPC stream started")
+// 		reqLogger.Info("gRPC stream started")
 
-		// Execute handler
-		err := handler(srv, ss)
+// 		// Execute handler
+// 		err := handler(srv, ss)
 
-		// Log response
-		duration := time.Since(start)
-		statusCode := codes.OK
-		if err != nil {
-			if st, ok := status.FromError(err); ok {
-				statusCode = st.Code()
-			} else {
-				statusCode = codes.Internal
-			}
-		}
+// 		// Log response
+// 		duration := time.Since(start)
+// 		statusCode := codes.OK
+// 		if err != nil {
+// 			if st, ok := status.FromError(err); ok {
+// 				statusCode = st.Code()
+// 			} else {
+// 				statusCode = codes.Internal
+// 			}
+// 		}
 
-		reqLogger.Info("gRPC stream completed",
-			zap.Duration("duration", duration),
-			zap.String("status", statusCode.String()),
-			zap.Error(err),
-		)
+// 		reqLogger.Info("gRPC stream completed",
+// 			logger.Duration("duration", duration),
+// 			logger.String("status", statusCode.String()),
+// 			logger.Error(err),
+// 		)
 
-		return err
-	}
-}
+// 		return err
+// 	}
+// }
 
 // Error handling interceptor for unary calls
 func errorHandlingUnaryInterceptor(config MiddlewareConfig) grpc.UnaryServerInterceptor {
@@ -315,8 +315,8 @@ func errorHandlingUnaryInterceptor(config MiddlewareConfig) grpc.UnaryServerInte
 
 			// Log error with context
 			errors.LogError(ctx, config.Logger, serviceErr,
-				zap.String("grpc_method", info.FullMethod),
-				zap.String("request_id", getRequestID(ctx)),
+				logger.String("grpc_method", info.FullMethod),
+				logger.String("request_id", getRequestID(ctx)),
 			)
 
 			// Convert to gRPC status
@@ -338,8 +338,8 @@ func errorHandlingStreamInterceptor(config MiddlewareConfig) grpc.StreamServerIn
 
 			// Log error with context
 			errors.LogError(ss.Context(), config.Logger, serviceErr,
-				zap.String("grpc_method", info.FullMethod),
-				zap.String("request_id", getRequestID(ss.Context())),
+				logger.String("grpc_method", info.FullMethod),
+				logger.String("request_id", getRequestID(ss.Context())),
 			)
 
 			// Convert to gRPC status

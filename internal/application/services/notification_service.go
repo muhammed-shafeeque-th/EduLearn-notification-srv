@@ -10,16 +10,16 @@ import (
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
 	domain_errors "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/errors"
 	repository "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/repositories"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 type NotificationService struct {
 	repo   repository.NotificationRepository
 	sender ports.NotificationSender
-	logger *zap.Logger
+	logger ports.LoggerService
 }
 
-func NewNotificationService(repo repository.NotificationRepository, sender ports.NotificationSender, logger *zap.Logger) *NotificationService {
+func NewNotificationService(repo repository.NotificationRepository, sender ports.NotificationSender, logger ports.LoggerService) *NotificationService {
 	return &NotificationService{repo: repo, sender: sender, logger: logger}
 }
 
@@ -41,14 +41,14 @@ func (s *NotificationService) CreateAndQueue(
 	}
 
 	if err := s.repo.SaveNotification(ctx, n); err != nil {
-		s.logger.Error("failed to save notification", zap.Error(err))
+		s.logger.Error("failed to save notification", logger.Error(err))
 		return nil, domain_errors.ErrDatabase
 	}
 
 	if err := s.sender.Send(ctx, n); err != nil {
 		s.logger.Error("failed to send notification via sender strategy",
-			zap.Error(err),
-			zap.String("notification_id", n.ID),
+			logger.Error(err),
+			logger.String("notification_id", n.ID),
 		)
 		return n, err
 	}
@@ -60,9 +60,9 @@ func (s *NotificationService) GetNotification(ctx context.Context, notificationI
 	n, err := s.repo.GetNotification(ctx, notificationID, userID)
 	if err != nil {
 		s.logger.Error("failed to get notification",
-			zap.String("notification_id", notificationID),
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("notification_id", notificationID),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 		return nil, err
 	}
@@ -80,14 +80,14 @@ func (s *NotificationService) ListNotifications(ctx context.Context, userID stri
 	}
 
 	s.logger.Info("failed to list notifications",
-		zap.String("user_id", userID),
-		zap.Any("filters", filters),
+		logger.String("user_id", userID),
+		logger.Any("filters", filters),
 	)
 	ns, total, err := s.repo.GetNotifications(ctx, filters)
 	if err != nil {
 		s.logger.Error("failed to list notifications",
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 		return nil, 0, err
 	}
@@ -97,9 +97,9 @@ func (s *NotificationService) ListNotifications(ctx context.Context, userID stri
 func (s *NotificationService) MarkAsRead(ctx context.Context, notificationID, userID string) error {
 	if err := s.repo.MarkAsRead(ctx, notificationID, userID); err != nil {
 		s.logger.Error("failed to mark notification as read",
-			zap.String("notification_id", notificationID),
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("notification_id", notificationID),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 		return err
 	}
@@ -108,19 +108,19 @@ func (s *NotificationService) MarkAsRead(ctx context.Context, notificationID, us
 func (s *NotificationService) DeleteNotification(ctx context.Context, notificationID, userID string) error {
 	if err := s.repo.DeleteNotification(ctx, notificationID, userID); err != nil {
 		s.logger.Error("failed to delete notification",
-			zap.String("notification_id", notificationID),
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("notification_id", notificationID),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 		return err
 	}
 	return nil
 }
-func (s *NotificationService) ClearNotifications(ctx context.Context,  userID string) error {
-	if err := s.repo.ClearNotifications(ctx,  userID); err != nil {
+func (s *NotificationService) ClearNotifications(ctx context.Context, userID string) error {
+	if err := s.repo.ClearNotifications(ctx, userID); err != nil {
 		s.logger.Error("failed to clear user notifications",
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 		return err
 	}
@@ -129,7 +129,7 @@ func (s *NotificationService) ClearNotifications(ctx context.Context,  userID st
 
 func (s *NotificationService) MarkAllAsRead(ctx context.Context, userID string) error {
 	if err := s.repo.MarkAllAsRead(ctx, userID); err != nil {
-		s.logger.Error("failed to mark all notifications as read", zap.String("user_id", userID), zap.Error(err))
+		s.logger.Error("failed to mark all notifications as read", logger.String("user_id", userID), logger.Error(err))
 		return err
 	}
 	return nil
