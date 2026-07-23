@@ -6,22 +6,22 @@ import (
 
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/utils"
-	"go.uber.org/zap"
 )
 
 type ForgotPasswordService struct {
 	renderer      ports.TemplateRenderer
 	messageBroker ports.MessageBroker
 	emailSender   ports.EmailSender[ports.NotificationLike]
-	logger        *zap.Logger
+	logger        ports.LoggerService
 }
 
 func NewForgotPasswordService(
 	renderer ports.TemplateRenderer,
 	messageBroker ports.MessageBroker,
 	emailSender ports.EmailSender[ports.NotificationLike],
-	logger *zap.Logger,
+	logger ports.LoggerService,
 ) *ForgotPasswordService {
 	return &ForgotPasswordService{
 		renderer:      renderer,
@@ -41,7 +41,7 @@ func (s *ForgotPasswordService) Send(ctx context.Context, userID, username, emai
 		"EXPIRY_TIME": fmt.Sprintf("%d minutes", expiryMinutes),
 	})
 	if err != nil {
-		s.logger.Error("Failed to render forgot-password template", zap.String("username", username), zap.Error(err))
+		s.logger.Error("Failed to render forgot-password template", logger.String("username", username), logger.Error(err))
 		return fmt.Errorf("failed to render forgot password email template: %w", err)
 	}
 
@@ -56,17 +56,16 @@ func (s *ForgotPasswordService) Send(ctx context.Context, userID, username, emai
 
 	if err := s.emailSender.Send(ctx, &notification); err != nil {
 		s.logger.Error("Failed to send forgot password email",
-			zap.String("email", email),
-			zap.Error(err),
+			logger.String("email", email),
+			logger.Error(err),
 		)
 		return fmt.Errorf("failed to send forgot password email: %w", err)
 	}
 
 	s.logger.Info("Forgot password email sent successfully",
-		zap.String("userId", userID),
-		zap.String("email", email),
+		logger.String("userId", userID),
+		logger.String("email", email),
 	)
 
 	return nil
 }
-

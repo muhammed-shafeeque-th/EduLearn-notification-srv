@@ -7,11 +7,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	domain "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain"
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
 	domain_errors "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/errors"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 type mockNotificationRepository struct {
@@ -94,7 +94,7 @@ func (m *mockNotificationSender) Send(ctx context.Context, notification *entity.
 
 func TestNotificationService_CreateAndQueue(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 
 	t.Run("success", func(t *testing.T) {
 		calledSave := false
@@ -165,7 +165,7 @@ func TestNotificationService_CreateAndQueue(t *testing.T) {
 
 func TestNotificationService_GetNotification(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 
 	repo := &mockNotificationRepository{
 		getNotificationFn: func(ctx context.Context, id, userID string) (*entity.Notification, error) {
@@ -183,7 +183,7 @@ func TestNotificationService_GetNotification(t *testing.T) {
 
 func TestNotificationService_ListNotifications(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 
 	var receivedFilter *domain.NotificationFilter
 	repo := &mockNotificationRepository{
@@ -204,7 +204,7 @@ func TestNotificationService_ListNotifications(t *testing.T) {
 
 func TestNotificationService_Mutations(t *testing.T) {
 	ctx := context.Background()
-	logger := zap.NewNop()
+	logger := logger.NewNop()
 
 	repo := &mockNotificationRepository{
 		markAsReadFn: func(ctx context.Context, id, userID string) error {
