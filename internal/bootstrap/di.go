@@ -18,6 +18,7 @@ import (
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/kafka"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/notification"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/observability/logging"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/observability/metrics"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/observability/tracing"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/ratelimit"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/redis"
@@ -25,7 +26,8 @@ import (
 	grpc_interface "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/interfaces/grpc"
 	websocket_interface "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/interfaces/websocket"
 	ws "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/interfaces/websocket"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
+
 	"google.golang.org/grpc"
 )
 
@@ -34,7 +36,8 @@ type Container struct {
 	Config *Config
 
 	// Infrastructure
-	Logger *zap.Logger
+	Logger ports.LoggerService
+	Metrics *metrics.MetricsService
 	Tracer *tracing.Tracer
 	DB     *database.DB
 	Cache  ports.Cache
@@ -48,7 +51,7 @@ type Container struct {
 	RateLimiter        ports.RateLimiter
 	TemplateRenderer   ports.TemplateRenderer
 	EmailSender        *email.EmailSender
-	WSHub              *websocket_interface.Hub
+	WSHub              ports.WsHubAdaptor
 	KafkaProducer      *kafka.Producer
 	KafkaConsumer      *kafka.Consumer
 
@@ -100,8 +103,7 @@ type Config struct {
 	WSPort string
 
 	// Observability
-	JaegerHost string
-	JaegerPort string
+	CollectorEndpoint string
 
 	// Rate limiting
 	EmailRateLimit  float64
@@ -154,7 +156,7 @@ func (c *Container) initObservability() error {
 		ServiceVersion: c.Config.ServiceVersion,
 		Environment:    c.Config.Environment,
 	}
-	logger, err := logging.NewLogger(logConfig)
+	logger, err := logging.NewLoggerService(logConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create logger: %w", err)
 	}
@@ -162,17 +164,27 @@ func (c *Container) initObservability() error {
 
 	// Tracer
 	tracingConfig := tracing.TracingConfig{
-		JaegerHost:     c.Config.JaegerHost,
-		JaegerPort:     c.Config.JaegerPort,
+		CollectorEndpoint:     c.Config.CollectorEndpoint,
 		ServiceName:    c.Config.ServiceName,
 		ServiceVersion: c.Config.ServiceVersion,
 		Environment:    c.Config.Environment,
 	}
+
 	tracer, err := tracing.NewTracer(tracingConfig, logger)
 	if err != nil {
 		return fmt.Errorf("failed to create tracer: %w", err)
 	}
 	c.Tracer = tracer
+
+	metric := metrics.NewMetricsService()
+
+	if err := metric.Initialize(metrics.MetricsConfig{
+		Port: "9090",
+		Path: "/metrics",
+	}); err != nil {
+		return fmt.Errorf("failed to create metrics: %w", err)
+		// panic(err)
+	}
 
 	return nil
 }
@@ -380,7 +392,7 @@ func (c *Container) Start(ctx context.Context) error {
 
 	go func() {
 		if err := c.GRPCServer.Start(c.Config.GRPCAddress); err != nil {
-			c.Logger.Fatal("gRPC server failed", zap.Error(err))
+			c.Logger.Fatal("gRPC server failed", logger.Error(err))
 		}
 	}()
 
@@ -389,10 +401,10 @@ func (c *Container) Start(ctx context.Context) error {
 		http.Handle("/notifications", c.WSHub.ServeWS(authFunc))
 
 		addr := ":" + c.Config.WSPort
-		c.Logger.Info("WebSocket server starting", zap.String("address", addr))
+		c.Logger.Info("WebSocket server starting", logger.String("address", addr))
 
 		if err := http.ListenAndServe(addr, nil); err != nil {
-			c.Logger.Error("WebSocket server failed", zap.Error(err))
+			c.Logger.Error("WebSocket server failed", logger.Error(err))
 		}
 	}()
 
@@ -404,30 +416,35 @@ func (c *Container) Shutdown(ctx context.Context) error {
 	c.Logger.Info("Shutting down services...")
 
 	if err := c.WSHub.Shutdown(ctx); err != nil {
-		c.Logger.Error("WebSocket hub shutdown error", zap.Error(err))
+		c.Logger.Error("WebSocket hub shutdown error", logger.Error(err))
 	}
 
 	if err := c.KafkaConsumer.Close(); err != nil {
-		c.Logger.Error("Kafka consumer shutdown error", zap.Error(err))
+		c.Logger.Error("Kafka consumer shutdown error", logger.Error(err))
 	}
 
 	c.GRPCServer.Stop()
 
 	if err := c.EmailSender.Close(); err != nil {
-		c.Logger.Error("Email sender shutdown error", zap.Error(err))
+		c.Logger.Error("Email sender shutdown error", logger.Error(err))
 	}
 
 	if err := c.KafkaProducer.Close(); err != nil {
-		c.Logger.Error("Kafka producer shutdown error", zap.Error(err))
+		c.Logger.Error("Kafka producer shutdown error", logger.Error(err))
 	}
 
 	if err := c.DB.Close(); err != nil {
-		c.Logger.Error("Database shutdown error", zap.Error(err))
+		c.Logger.Error("Database shutdown error", logger.Error(err))
 	}
 
 	if c.Tracer != nil {
 		if err := c.Tracer.Shutdown(ctx); err != nil {
-			c.Logger.Error("Tracer shutdown error", zap.Error(err))
+			c.Logger.Error("Tracer shutdown error", logger.Error(err))
+		}
+	}
+	if c.Metrics != nil {
+		if err := c.Metrics.Shutdown(ctx); err != nil {
+			c.Logger.Error("Metrics shutdown error", logger.Error(err))
 		}
 	}
 
