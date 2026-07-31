@@ -36,11 +36,11 @@ type Container struct {
 	Config *Config
 
 	// Infrastructure
-	Logger ports.LoggerService
+	Logger  ports.LoggerService
 	Metrics *metrics.MetricsService
-	Tracer *tracing.Tracer
-	DB     *database.DB
-	Cache  ports.Cache
+	Tracer  *tracing.Tracer
+	DB      *database.DB
+	Cache   ports.Cache
 
 	// Repositories
 	NotificationRepo repository.NotificationRepository
@@ -164,10 +164,10 @@ func (c *Container) initObservability() error {
 
 	// Tracer
 	tracingConfig := tracing.TracingConfig{
-		CollectorEndpoint:     c.Config.CollectorEndpoint,
-		ServiceName:    c.Config.ServiceName,
-		ServiceVersion: c.Config.ServiceVersion,
-		Environment:    c.Config.Environment,
+		CollectorEndpoint: c.Config.CollectorEndpoint,
+		ServiceName:       c.Config.ServiceName,
+		ServiceVersion:    c.Config.ServiceVersion,
+		Environment:       c.Config.Environment,
 	}
 
 	tracer, err := tracing.NewTracer(tracingConfig, logger)
@@ -177,6 +177,8 @@ func (c *Container) initObservability() error {
 	c.Tracer = tracer
 
 	metric := metrics.NewMetricsService()
+
+	c.Metrics = metric
 
 	if err := metric.Initialize(metrics.MetricsConfig{
 		Port: "9090",
