@@ -1,29 +1,31 @@
 package database
 
 import (
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/database/gorm/models"
-	"go.uber.org/zap"
+	log "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
+
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"moul.io/zapgorm2"
+	// "moul.io/zapgorm2"
 )
 
 type DB struct {
 	db     *gorm.DB
-	logger *zap.Logger
+	logger ports.LoggerService
 }
 
-func NewDB(dsn string, logger *zap.Logger) (*DB, error) {
-	zapLogger := zapgorm2.New(logger)
-	zapLogger.SetAsDefault()
-	zapLogger.LogLevel = 2 // only log errors
+func NewDB(dsn string, logger ports.LoggerService) (*DB, error) {
+	// zapLogger := zapgorm2.New(logger)
+	// zapLogger.SetAsDefault()
+	// zapLogger.LogLevel = 2 // only log errors
 
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		Logger:                 zapLogger,
+		// Logger:                 zapLogger,
 		SkipDefaultTransaction: true,
 	})
 	if err != nil {
-		logger.Error("failed to connect database", zap.Error(err))
+		logger.Error("failed to connect database", log.Error(err))
 		return nil, err
 	}
 	logger.Info("database connected")
@@ -37,11 +39,11 @@ func (d *DB) Gorm() *gorm.DB {
 func (d *DB) Close() error {
 	sqlDB, err := d.db.DB()
 	if err != nil {
-		d.logger.Error("failed to get sql DB", zap.Error(err))
+		d.logger.Error("failed to get sql DB", log.Error(err))
 		return err
 	}
 	if err := sqlDB.Close(); err != nil {
-		d.logger.Error("failed to close DB", zap.Error(err))
+		d.logger.Error("failed to close DB", log.Error(err))
 		return err
 	}
 	d.logger.Info("database closed")
@@ -50,7 +52,7 @@ func (d *DB) Close() error {
 
 func (r *DB) AutoMigrate() error {
 	if err := r.db.AutoMigrate(&models.NotificationModel{}, &models.ProcessedNotificationModel{}); err != nil {
-		r.logger.Error("failed to auto-migrate", zap.Error(err))
+		r.logger.Error("failed to auto-migrate", log.Error(err))
 		return err
 	}
 	return nil
