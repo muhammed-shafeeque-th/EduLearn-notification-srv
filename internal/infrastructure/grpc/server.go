@@ -3,9 +3,11 @@ package grpc
 import (
 	"net"
 
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	grpc_interface "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/interfaces/grpc"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/proto/proto"
-	"go.uber.org/zap"
+
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/encoding"
 	"google.golang.org/grpc/encoding/gzip"
@@ -13,10 +15,10 @@ import (
 
 type Server struct {
 	grpcServer *grpc.Server
-	logger     *zap.Logger
+	logger     ports.LoggerService
 }
 
-func NewServer(grpc_handler *grpc_interface.Handler, logger *zap.Logger, opt ...grpc.ServerOption) *Server {
+func NewServer(grpc_handler *grpc_interface.Handler, logger ports.LoggerService, opt ...grpc.ServerOption) *Server {
 	grpcServer := grpc.NewServer(
 		opt...,
 	)
@@ -37,10 +39,10 @@ func NewServer(grpc_handler *grpc_interface.Handler, logger *zap.Logger, opt ...
 func (s *Server) Start(address string) error {
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		s.logger.Error("Failed to listen", zap.String("address", address), zap.Error(err))
+		s.logger.Error("Failed to listen", logger.String("address", address), logger.Error(err))
 		return err
 	}
-	s.logger.Info("gRPC server started", zap.String("address", address))
+	s.logger.Info("gRPC server started", logger.String("address", address))
 	return s.grpcServer.Serve(lis)
 }
 
