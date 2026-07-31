@@ -11,7 +11,7 @@ import (
 
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	database "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/database/gorm"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 type HealthStatus string
@@ -42,14 +42,14 @@ type HealthResponse struct {
 type HealthChecker struct {
 	db          *database.DB
 	redisClient ports.Cache
-	logger      *zap.Logger
+	logger      ports.LoggerService
 	startTime   time.Time
 	serviceName string
 	version     string
 	mu          sync.RWMutex
 }
 
-func NewHealthChecker(db *database.DB, redisClient ports.Cache, logger *zap.Logger, serviceName, version string) *HealthChecker {
+func NewHealthChecker(db *database.DB, redisClient ports.Cache, logger ports.LoggerService, serviceName, version string) *HealthChecker {
 	return &HealthChecker{
 		db:          db,
 		redisClient: redisClient,
@@ -61,7 +61,20 @@ func NewHealthChecker(db *database.DB, redisClient ports.Cache, logger *zap.Logg
 }
 
 func (h *HealthChecker) LivenessHandler(w http.ResponseWriter, r *http.Request) {
-	h.handleHealthCheck(w, r, h.checkLiveness)
+	w.Header().Set("Content-Type", "application/json")
+
+	response := struct {
+		Status HealthStatus `json:"status"`
+	}{
+		Status: StatusHealthy,
+	}
+
+	w.WriteHeader(http.StatusOK)
+
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		h.logger.Error("Failed to encode health response", logger.Error(err))
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+	}
 }
 
 func (h *HealthChecker) ReadinessHandler(w http.ResponseWriter, r *http.Request) {
@@ -84,16 +97,17 @@ func (h *HealthChecker) handleHealthCheck(w http.ResponseWriter, r *http.Request
 	}
 
 	statusCode := http.StatusOK
-	if overallStatus == StatusUnhealthy {
+	switch overallStatus {
+	case StatusUnhealthy:
 		statusCode = http.StatusServiceUnavailable
-	} else if overallStatus == StatusDegraded {
+	case StatusDegraded:
 		statusCode = http.StatusOK // Degraded is still considered OK for load balancers
 	}
 
 	w.WriteHeader(statusCode)
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.logger.Error("Failed to encode health response", zap.Error(err))
+		h.logger.Error("Failed to encode health response", logger.Error(err))
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 	}
 }
@@ -138,7 +152,7 @@ func (h *HealthChecker) checkDatabase() HealthCheck {
 	duration := time.Since(start)
 
 	if err != nil {
-		h.logger.Error("Database health check failed", zap.Error(err))
+		h.logger.Error("Database health check failed", logger.Error(err))
 		return HealthCheck{
 			Name:     "database",
 			Status:   StatusUnhealthy,
@@ -167,7 +181,7 @@ func (h *HealthChecker) checkRedis() HealthCheck {
 	duration := time.Since(start)
 
 	if err != nil {
-		h.logger.Error("Redis health check failed", zap.Error(err))
+		h.logger.Error("Redis health check failed", logger.Error(err))
 		return HealthCheck{
 			Name:     "redis",
 			Status:   StatusUnhealthy,
@@ -245,6 +259,6 @@ func (h *HealthChecker) StartHealthServer(port string) error {
 		IdleTimeout:  30 * time.Second,
 	}
 
-	h.logger.Info("Health check server starting", zap.String("port", port))
+	h.logger.Info("Health check server starting", logger.String("port", port))
 	return server.ListenAndServe()
 }
