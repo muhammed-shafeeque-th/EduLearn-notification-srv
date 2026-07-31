@@ -1,4 +1,3 @@
-
 package websocket_interface
 
 import (
@@ -7,15 +6,17 @@ import (
 	"net/http"
 
 	"github.com/golang-jwt/jwt/v5"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/ws"
 )
 
 type JWTAuthenticator struct {
 	secretKey []byte
-	logger    *zap.Logger
+	logger    ports.LoggerService
 }
 
-func NewJWTAuthenticator(secretKey string, logger *zap.Logger) *JWTAuthenticator {
+func NewJWTAuthenticator(secretKey string, logger ports.LoggerService) *JWTAuthenticator {
 	return &JWTAuthenticator{
 		secretKey: []byte(secretKey),
 		logger:    logger,
@@ -25,7 +26,7 @@ func NewJWTAuthenticator(secretKey string, logger *zap.Logger) *JWTAuthenticator
 func (a *JWTAuthenticator) Authenticate(r *http.Request) (string, error) {
 	// Try to get token from Authorization header first
 	token := a.extractTokenFromQuery(r)
-	
+
 	// Fallback to query parameter (for browser WebSocket connections)
 	if token == "" {
 		token = r.URL.Query().Get("token")
@@ -38,8 +39,8 @@ func (a *JWTAuthenticator) Authenticate(r *http.Request) (string, error) {
 	userID, err := a.validateToken(token)
 	if err != nil {
 		a.logger.Warn("Invalid token",
-			zap.Error(err),
-			zap.String("remote_addr", r.RemoteAddr),
+			logger.Error(err),
+			logger.String("remote_addr", r.RemoteAddr),
 		)
 		return "", err
 	}
@@ -106,7 +107,7 @@ func (a *JWTAuthenticator) validateToken(tokenString string) (string, error) {
 }
 
 // Helper to create auth function for Hub
-func CreateAuthFunc(secretKey string, logger *zap.Logger) AuthFunc {
+func CreateAuthFunc(secretKey string, logger ports.LoggerService) ws.AuthFunc {
 	authenticator := NewJWTAuthenticator(secretKey, logger)
 	return authenticator.Authenticate
 }

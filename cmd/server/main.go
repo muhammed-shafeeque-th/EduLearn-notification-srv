@@ -37,7 +37,7 @@ func main() {
 		KafkaGroupID:      cfg.KafkaConsumerGroup,
 		GRPCAddress:       ":" + cfg.GRpcPort,
 		WSPort:            cfg.WSPort,
-		CollectorEndpoint: cfg.OTELP_ENDPOINT,
+		CollectorEndpoint: cfg.OTLP_ENDPOINT,
 		EmailRateLimit:    float64(cfg.EmailRateLimit),
 		EmailBurstLimit:   cfg.EmailBurstLimit,
 		KafkaWorkers:      cfg.KafkaWorkers,
@@ -59,13 +59,13 @@ func main() {
 
 	healthChecker := health.NewHealthChecker(
 		container.DB,
-		nil,
+		container.Cache,
 		logger,
 		cfg.ServiceName,
 		cfg.ServiceVersion,
 	)
 	go func() {
-		if err := startHealthServer(cfg.HealthPort, healthChecker, container); err != nil {
+		if err := startHealthServer(cfg.HttpPort, healthChecker, container); err != nil {
 			logger.Error("Health server failed", zap.Error(err))
 		}
 	}()
@@ -99,7 +99,7 @@ func main() {
 func startHealthServer(port string, healthChecker *health.HealthChecker, container *di.Container) error {
 	mux := http.NewServeMux()
 
-	mux.HandleFunc("/health", healthChecker.LivenessHandler)
+	mux.HandleFunc("/healthz", healthChecker.LivenessHandler)
 	mux.HandleFunc("/ready", healthChecker.ReadinessHandler)
 	// Metrics endpoint
 	mux.Handle("/metrics", container.Metrics.Handler())

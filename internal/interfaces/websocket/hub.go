@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/ws"
 )
 
 const (
@@ -19,7 +21,6 @@ const (
 	pingPeriod     = (pongWait * 9) / 10
 	maxMessageSize = 512 * 1024 // 512KB
 )
-
 
 // --- CONSTANTS AND IMPORTS ---
 // Standard library, github & project imports, plus timeouts/constants for connection health.
@@ -31,17 +32,17 @@ const (
 // --- CLIENT STRUCT ---
 // Represents a single WebSocket connection for a specific user.
 type Client struct {
-	hub      *Hub             // Reference to parent hub for dereg, communication.
-	conn     *websocket.Conn  // Actual websocket connection (from gorilla/websocket).
-	userID   string           // ID to group connections by user.
-	send     chan []byte      // Outbound channel: hub pushes messages here, writePump reads.
-	lastSeen time.Time        // Last time a message/ping/pong received (for liveness).
+	hub      *Hub            // Reference to parent hub for dereg, communication.
+	conn     *websocket.Conn // Actual websocket connection (from gorilla/websocket).
+	userID   string          // ID to group connections by user.
+	send     chan []byte     // Outbound channel: hub pushes messages here, writePump reads.
+	lastSeen time.Time       // Last time a message/ping/pong received (for liveness).
 }
 
 // --- HUB STRUCT ---
 // The central manager for all websockets and message flow.
 type Hub struct {
-	logger *zap.Logger
+	logger ports.LoggerService
 
 	// Core client management:
 	clients    map[string]map[*Client]struct{} // userID -> set of Client pointers
@@ -50,11 +51,11 @@ type Hub struct {
 	unregister chan *Client                    // Closed/stale clients go here for cleanup.
 
 	// Metrics and concurrency.
-	mu              sync.RWMutex               // Protects access to clients & stats.
-	totalClients    int                        // Count of active client connections.
-	messagesSent    int64                      // Successful downstream deliveries.
-	messagesDropped int64                      // Dropped messages due to backpressure.
-	stopCh          chan struct{}              // Signals shutdown (closes hub goroutine).
+	mu              sync.RWMutex  // Protects access to clients & stats.
+	totalClients    int           // Count of active client connections.
+	messagesSent    int64         // Successful downstream deliveries.
+	messagesDropped int64         // Dropped messages due to backpressure.
+	stopCh          chan struct{} // Signals shutdown (closes hub goroutine).
 
 	// Integration with async event sources (e.g., Kafka):
 	NewInAppNotificationCh chan *entity.InAppWSMessage // Messages to send out to websockets.
@@ -68,7 +69,7 @@ type BroadcastMessage struct {
 
 // --- HUB CONSTRUCTOR ---
 // Sets up all data structures, channels, then runs goroutines for core logic.
-func NewHub(logger *zap.Logger) *Hub {
+func NewHub(logger ports.LoggerService) ports.WsHubAdaptor {
 	hub := &Hub{
 		logger:                 logger,
 		clients:                make(map[string]map[*Client]struct{}),
@@ -79,7 +80,7 @@ func NewHub(logger *zap.Logger) *Hub {
 		NewInAppNotificationCh: make(chan *entity.InAppWSMessage, 1024),
 	}
 
-	go hub.run()                        // Main router/event loop for the hub.
+	go hub.run()                           // Main router/event loop for the hub.
 	go hub.startKafkaSubscriberForwarder() // Goroutine: delivers notifications from Kafka to client(s).
 	return hub
 }
@@ -140,9 +141,9 @@ func (h *Hub) handleRegister(client *Client) {
 
 	userConnections := len(h.clients[client.userID])
 	h.logger.Info("WebSocket client registered",
-		zap.String("user_id", client.userID),
-		zap.Int("user_connections", userConnections),
-		zap.Int("total_clients", h.totalClients),
+		logger.String("user_id", client.userID),
+		logger.Int("user_connections", userConnections),
+		logger.Int("total_clients", h.totalClients),
 	)
 }
 
@@ -165,8 +166,8 @@ func (h *Hub) handleUnregister(client *Client) {
 		}
 	}
 	h.logger.Info("WebSocket client unregistered",
-		zap.String("user_id", client.userID),
-		zap.Int("total_clients", h.totalClients),
+		logger.String("user_id", client.userID),
+		logger.Int("total_clients", h.totalClients),
 	)
 }
 
@@ -183,7 +184,7 @@ func (h *Hub) handleBroadcast(message *BroadcastMessage) {
 
 	if len(clients) == 0 {
 		h.logger.Debug("No websocket clients for user",
-			zap.String("user_id", message.UserID),
+			logger.String("user_id", message.UserID),
 		)
 		return
 	}
@@ -191,8 +192,8 @@ func (h *Hub) handleBroadcast(message *BroadcastMessage) {
 	data, err := json.Marshal(message.Payload)
 	if err != nil {
 		h.logger.Error("Failed to marshal broadcast payload",
-			zap.Error(err),
-			zap.String("user_id", message.UserID),
+			logger.Error(err),
+			logger.String("user_id", message.UserID),
 		)
 		return
 	}
@@ -207,7 +208,7 @@ func (h *Hub) handleBroadcast(message *BroadcastMessage) {
 		default:
 			dropped++
 			h.logger.Warn("Message dropped (send buffer full)",
-				zap.String("user_id", client.userID),
+				logger.String("user_id", client.userID),
 			)
 		}
 	}
@@ -219,9 +220,9 @@ func (h *Hub) handleBroadcast(message *BroadcastMessage) {
 
 	if sent > 0 {
 		h.logger.Debug("Broadcast sent",
-			zap.String("user_id", message.UserID),
-			zap.Int("sent", sent),
-			zap.Int("dropped", dropped),
+			logger.String("user_id", message.UserID),
+			logger.Int("sent", sent),
+			logger.Int("dropped", dropped),
 		)
 	}
 }
@@ -245,8 +246,8 @@ func (h *Hub) handlePing() {
 
 	for _, client := range staleClients {
 		h.logger.Warn("Removing stale websocket client",
-			zap.String("user_id", client.userID),
-			zap.Time("last_seen", client.lastSeen),
+			logger.String("user_id", client.userID),
+			logger.Time("last_seen", client.lastSeen),
 		)
 		h.unregister <- client
 		// Best practice is to close connection asynchronously
@@ -264,7 +265,7 @@ func (h *Hub) Broadcast(userID string, payload interface{}) {
 	case h.broadcast <- &BroadcastMessage{UserID: userID, Payload: payload}:
 	default:
 		h.logger.Error("Broadcast channel full, dropping message",
-			zap.String("user_id", userID),
+			logger.String("user_id", userID),
 		)
 	}
 }
@@ -289,6 +290,7 @@ func (h *Hub) GetMetrics() map[string]interface{} {
 //   - Checks for ping/pong from the client as a liveness/heartbeat signal
 //   - Updates lastSeen timestamp for health checks
 //   - Responds to a "ping" type message with a "pong" (for client-side healthcheck)
+//
 // On error or disconnect, it unregisters itself and closes the socket.
 func (c *Client) readPump() {
 	defer func() {
@@ -308,8 +310,8 @@ func (c *Client) readPump() {
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
 				c.hub.logger.Error("Unexpected websocket close",
-					zap.Error(err),
-					zap.String("user_id", c.userID),
+					logger.Error(err),
+					logger.String("user_id", c.userID),
 				)
 			}
 			break
@@ -357,8 +359,8 @@ func (c *Client) writePump() {
 			}
 			if err := c.conn.WriteMessage(websocket.TextMessage, message); err != nil {
 				c.hub.logger.Error("Write to websocket failed",
-					zap.Error(err),
-					zap.String("user_id", c.userID),
+					logger.Error(err),
+					logger.String("user_id", c.userID),
 				)
 				return
 			}
@@ -386,16 +388,14 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-// --- AUTHENTICATION FUNCTION TYPE ---
-// Used to extract and validate user credentials on websocket connect.
-type AuthFunc func(r *http.Request) (string, error)
 
-func (h *Hub) ServeWS(auth AuthFunc) http.HandlerFunc {
+
+func (h *Hub) ServeWS(auth ws.AuthFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := auth(r)
 		if err != nil || userID == "" {
 			h.logger.Warn("Unauthorized web socket connection attempt",
-				zap.Error(err),
+				logger.Error(err),
 			)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
@@ -404,8 +404,8 @@ func (h *Hub) ServeWS(auth AuthFunc) http.HandlerFunc {
 		conn, err := upgrader.Upgrade(w, r, nil)
 		if err != nil {
 			h.logger.Error("Websocket upgrade failure",
-				zap.Error(err),
-				zap.String("user_id", userID),
+				logger.Error(err),
+				logger.String("user_id", userID),
 			)
 			return
 		}
@@ -436,7 +436,7 @@ func (h *Hub) NotifyInAppMessage(msg *entity.InAppWSMessage) error {
 		return nil
 	default:
 		h.logger.Error("InApp notification channel full, dropping notification",
-			zap.String("user_id", msg.UserID),
+			logger.String("user_id", msg.UserID),
 		)
 		return errors.New("notify in-app channel full")
 	}
@@ -461,7 +461,6 @@ func (h *Hub) Shutdown(ctx context.Context) error {
 	return nil
 }
 
-
 /* -------   DATA FLOW EXPLANATION (from sender to client)   -------
 
 1. Notification source (e.g., Kafka) receives a new in-app notification, triggers NotifyInAppMessage().
@@ -483,4 +482,3 @@ Stale/inactive connections are routinely killed via handlePing(), based on lastS
 All resource cleanup, reconnections, and ordering are thread-safe and mostly handled via main goroutine.
 
 */
-

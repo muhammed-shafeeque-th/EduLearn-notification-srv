@@ -14,7 +14,8 @@ import (
 	domain_errors "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/errors"
 	repository "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/repositories"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/database/gorm/models"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
+
 	"gorm.io/gorm"
 )
 
@@ -22,10 +23,10 @@ import (
 type NotificationRepository struct {
 	db     *gorm.DB
 	cache  ports.Cache
-	logger *zap.Logger
+	logger ports.LoggerService
 }
 
-func NewNotificationRepository(db *gorm.DB, cache ports.Cache, logger *zap.Logger) repository.NotificationRepository {
+func NewNotificationRepository(db *gorm.DB, cache ports.Cache, logger ports.LoggerService) repository.NotificationRepository {
 	return &NotificationRepository{
 		db:     db,
 		cache:  cache,
@@ -48,16 +49,16 @@ func (r *NotificationRepository) SaveNotification(ctx context.Context, notificat
 	model := r.mapToEntityModel(notification)
 	if err := r.db.WithContext(ctx).Create(model).Error; err != nil {
 		r.logger.Error("Failed to save notification",
-			zap.String("notification_id", notification.ID),
-			zap.Error(err),
+			logger.String("notification_id", notification.ID),
+			logger.Error(err),
 		)
 		return fmt.Errorf("failed to save notification: %w", err)
 	}
 
 	if err := r.invalidateUserNotificationCaches(ctx, notification.UserId); err != nil {
 		r.logger.Warn("Failed to invalidate caches after SaveNotification",
-			zap.String("user_id", notification.UserId),
-			zap.Error(err),
+			logger.String("user_id", notification.UserId),
+			logger.Error(err),
 		)
 	}
 	return nil
@@ -82,9 +83,9 @@ func (r *NotificationRepository) GetNotification(ctx context.Context, id, userID
 			return nil, domain_errors.ErrNotificationNotFound
 		}
 		r.logger.Error("Failed to get notification",
-			zap.String("id", id),
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("id", id),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 		return nil, fmt.Errorf("failed to get notification: %w", err)
 	}
@@ -94,8 +95,8 @@ func (r *NotificationRepository) GetNotification(ctx context.Context, id, userID
 	// Cache entity
 	if err := r.cache.Set(ctx, cacheKey, *entityNotification, 5*time.Minute); err != nil {
 		r.logger.Warn("Failed to cache notification in GetNotification",
-			zap.String("cache_key", cacheKey),
-			zap.Error(err),
+			logger.String("cache_key", cacheKey),
+			logger.Error(err),
 		)
 	}
 
@@ -136,8 +137,8 @@ func (r *NotificationRepository) GetNotifications(ctx context.Context, filter *d
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
 		r.logger.Error("Failed counting notifications",
-			zap.String("user_id", filter.UserID),
-			zap.Error(err),
+			logger.String("user_id", filter.UserID),
+			logger.Error(err),
 		)
 		return nil, 0, fmt.Errorf("failed to count notifications: %w", err)
 	}
@@ -150,8 +151,8 @@ func (r *NotificationRepository) GetNotifications(ctx context.Context, filter *d
 		Offset(offset).
 		Find(&modelsSlice).Error; err != nil {
 		r.logger.Error("Failed to fetch notifications",
-			zap.String("user_id", filter.UserID),
-			zap.Error(err),
+			logger.String("user_id", filter.UserID),
+			logger.Error(err),
 		)
 		return nil, 0, fmt.Errorf("failed to fetch notifications: %w", err)
 	}
@@ -174,8 +175,8 @@ func (r *NotificationRepository) GetNotifications(ctx context.Context, filter *d
 		}
 		if err := r.cache.Set(ctx, cacheKey, cached, 2*time.Minute); err != nil {
 			r.logger.Warn("Failed to cache notifications in GetNotifications",
-				zap.String("cache_key", cacheKey),
-				zap.Error(err),
+				logger.String("cache_key", cacheKey),
+				logger.Error(err),
 			)
 		}
 	}
@@ -196,8 +197,8 @@ func (r *NotificationRepository) invalidateUserNotificationCaches(ctx context.Co
 		if err := r.cache.Delete(ctx, key); err != nil {
 			allErrs = append(allErrs, fmt.Sprintf("failed to delete cache key %s: %v", key, err))
 			r.logger.Warn("Failed to invalidate user notification cache",
-				zap.String("cache_key", key),
-				zap.Error(err),
+				logger.String("cache_key", key),
+				logger.Error(err),
 			)
 		}
 	}
@@ -226,15 +227,15 @@ func (r *NotificationRepository) MarkAsRead(ctx context.Context, id, userID stri
 
 	if err := r.cache.Delete(ctx, fmt.Sprintf("notification:%s", id)); err != nil {
 		r.logger.Warn("Failed to invalidate cache after MarkAsRead",
-			zap.String("cache_key", fmt.Sprintf("notification:%s", id)),
-			zap.Error(err),
+			logger.String("cache_key", fmt.Sprintf("notification:%s", id)),
+			logger.Error(err),
 		)
 	}
 
 	if err := r.invalidateUserNotificationCaches(ctx, userID); err != nil {
 		r.logger.Warn("Failed to invalidate user notifications caches after MarkAsRead",
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 	}
 
@@ -256,14 +257,14 @@ func (r *NotificationRepository) MarkAllAsRead(ctx context.Context, userID strin
 
 	if err := r.invalidateUserNotificationCaches(ctx, userID); err != nil {
 		r.logger.Warn("Failed to invalidate user_notifications caches after MarkAllAsRead",
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 	}
 
 	r.logger.Info("Marked all notifications as read",
-		zap.String("user_id", userID),
-		zap.Int64("count", result.RowsAffected))
+		logger.String("user_id", userID),
+		logger.Int64("count", result.RowsAffected))
 
 	return nil
 }
@@ -276,9 +277,9 @@ func (r *NotificationRepository) DeleteNotification(ctx context.Context, id, use
 
 	if result.Error != nil {
 		r.logger.Error("Failed to delete notification",
-			zap.String("notification_id", id),
-			zap.String("user_id", userID),
-			zap.Error(result.Error),
+			logger.String("notification_id", id),
+			logger.String("user_id", userID),
+			logger.Error(result.Error),
 		)
 		return fmt.Errorf("failed to delete notification: %w", result.Error)
 	}
@@ -289,14 +290,14 @@ func (r *NotificationRepository) DeleteNotification(ctx context.Context, id, use
 	// Invalidate relevant caches
 	if err := r.cache.Delete(ctx, fmt.Sprintf("notification:%s", id)); err != nil {
 		r.logger.Warn("Failed to invalidate notification cache after DeleteNotification",
-			zap.String("cache_key", fmt.Sprintf("notification:%s", id)),
-			zap.Error(err),
+			logger.String("cache_key", fmt.Sprintf("notification:%s", id)),
+			logger.Error(err),
 		)
 	}
 	if err := r.invalidateUserNotificationCaches(ctx, userID); err != nil {
 		r.logger.Warn("Failed to invalidate user notifications caches after DeleteNotification",
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 	}
 	return nil
@@ -309,8 +310,8 @@ func (r *NotificationRepository) ClearNotifications(ctx context.Context, userID 
 		Delete(&models.NotificationModel{})
 	if result.Error != nil {
 		r.logger.Error("Failed to clear notifications for user",
-			zap.String("user_id", userID),
-			zap.Error(result.Error),
+			logger.String("user_id", userID),
+			logger.Error(result.Error),
 		)
 		return fmt.Errorf("failed to clear notifications: %w", result.Error)
 	}
@@ -318,8 +319,8 @@ func (r *NotificationRepository) ClearNotifications(ctx context.Context, userID 
 	// Invalidate relevant caches
 	if err := r.invalidateUserNotificationCaches(ctx, userID); err != nil {
 		r.logger.Warn("Failed to invalidate user notifications caches after ClearNotifications",
-			zap.String("user_id", userID),
-			zap.Error(err),
+			logger.String("user_id", userID),
+			logger.Error(err),
 		)
 	}
 	// It is impractical to invalidate all per-notification caches, so only user-level.
@@ -346,8 +347,8 @@ func (r *NotificationRepository) CheckIfProcessed(ctx context.Context, id string
 	if count > 0 {
 		if err := r.cache.Set(ctx, cacheKey, true, time.Hour); err != nil {
 			r.logger.Warn("Failed to cache 'processed' result",
-				zap.String("cache_key", cacheKey),
-				zap.Error(err),
+				logger.String("cache_key", cacheKey),
+				logger.Error(err),
 			)
 		}
 		return true, nil
@@ -370,8 +371,8 @@ func (r *NotificationRepository) MarkAsProcessed(ctx context.Context, id string)
 	cacheKey := fmt.Sprintf("processed:%s", id)
 	if err := r.cache.Set(ctx, cacheKey, true, time.Hour); err != nil {
 		r.logger.Warn("Failed to cache result in MarkAsProcessed",
-			zap.String("cache_key", cacheKey),
-			zap.Error(err),
+			logger.String("cache_key", cacheKey),
+			logger.Error(err),
 		)
 	}
 

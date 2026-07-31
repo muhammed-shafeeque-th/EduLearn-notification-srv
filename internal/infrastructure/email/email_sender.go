@@ -13,15 +13,15 @@ import (
 	"github.com/jordan-wright/email"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
-	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/metrics"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/observability/metrics"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
-	"go.uber.org/zap"
 )
 
 // EmailSender is responsible for sending emails over SMTP.
 type EmailSender struct {
 	config      EmailConfig
-	logger      *zap.Logger
+	logger      ports.LoggerService
 	pool        *smtpPool
 	rateLimiter ports.RateLimiter
 	emailPool   sync.Pool
@@ -68,7 +68,7 @@ type EmailMetrics struct {
 func NewEmailSender(
 	config EmailConfig,
 	rateLimiter ports.RateLimiter,
-	logger *zap.Logger,
+	logger ports.LoggerService,
 ) (*EmailSender, error) {
 	pool, err := newSMTPPool(config)
 	if err != nil {
@@ -94,10 +94,10 @@ func NewEmailSender(
 		},
 	}
 
-	logger.Info("Email sender initialized",
-		zap.String("smtp_host", config.SMTPHost),
-		zap.Int("pool_size", config.PoolSize),
-	)
+	// logger.Info("Email sender initialized",
+	// 	logger.String("smtp_host", config.SMTPHost),
+	// 	logger.Int("pool_size", config.PoolSize),
+	// )
 
 	return sender, nil
 }
@@ -125,9 +125,9 @@ func (s *EmailSender) Send(ctx context.Context, notification ports.NotificationL
 			lastErr = err
 			s.metrics.incrementRetries()
 			s.logger.Warn("Email send attempt failed",
-				zap.Int("attempt", attempt),
-				zap.String("recipient", notification.GetRecipient()),
-				zap.Error(err),
+				logger.Int("attempt", attempt),
+				logger.String("recipient", notification.GetRecipient()),
+				logger.Error(err),
 			)
 
 			if attempt < s.config.MaxRetries {
@@ -180,7 +180,7 @@ func (s *EmailSender) sendEmail(ctx context.Context, notification ports.Notifica
 	// Carefully manage connection: always Put/Close even on panic
 	defer func() {
 		if r := recover(); r != nil {
-			s.logger.Error("panic in sendEmail; closing smtp client", zap.Any("recover", r))
+			s.logger.Error("panic in sendEmail; closing smtp client", logger.Any("recover", r))
 			client.Close()
 			return
 		}
@@ -196,7 +196,7 @@ func (s *EmailSender) sendEmail(ctx context.Context, notification ports.Notifica
 	}
 
 	s.logger.Info("Email sent successfully",
-		zap.String("recipient", notification.GetRecipient()),
+		logger.String("recipient", notification.GetRecipient()),
 	)
 	return nil
 }
