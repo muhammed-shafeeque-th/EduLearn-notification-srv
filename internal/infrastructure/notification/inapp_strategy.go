@@ -10,22 +10,21 @@ import (
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	entity "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/entities"
 	repository "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/domain/repositories"
-	ws "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/interfaces/websocket"
-	"go.uber.org/zap"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
 // InAppStrategy handles in-app notifications with WebSocket integration
 type InAppStrategy struct {
 	repo   repository.NotificationRepository
-	hub    *ws.Hub
-	logger *zap.Logger
+	hub    ports.WsHubAdaptor
+	logger ports.LoggerService
 }
 
 // NewInAppStrategy creates a new in-app notification strategy
 func NewInAppStrategy(
 	repo repository.NotificationRepository,
-	hub *ws.Hub,
-	logger *zap.Logger,
+	hub ports.WsHubAdaptor,
+	logger ports.LoggerService,
 ) ports.NotificationSender {
 	return &InAppStrategy{
 		repo:   repo,
@@ -51,16 +50,16 @@ func (s *InAppStrategy) Send(ctx context.Context, n *entity.Notification) error 
 	// Validate notification
 	if err := n.Validate(); err != nil {
 		s.logger.Error("Invalid in-app notification",
-			zap.Error(err))
+			logger.Error(err))
 		return fmt.Errorf("invalid notification: %w", err)
 	}
 
 	// Save to database
 	if err := s.repo.SaveNotification(ctx, n); err != nil {
 		s.logger.Error("Failed to save in-app notification",
-			zap.String("notification_id", n.ID),
-			zap.String("user_id", n.UserId),
-			zap.Error(err))
+			logger.String("notification_id", n.ID),
+			logger.String("user_id", n.UserId),
+			logger.Error(err))
 		return fmt.Errorf("failed to save notification: %w", err)
 	}
 
@@ -68,16 +67,16 @@ func (s *InAppStrategy) Send(ctx context.Context, n *entity.Notification) error 
 	wsMessage := s.buildWebSocketMessage(*n)
 	if err := s.hub.NotifyInAppMessage(wsMessage); err != nil {
 		s.logger.Warn("Failed to broadcast WebSocket message",
-			zap.String("notification_id", n.ID),
-			zap.String("user_id", n.UserId),
-			zap.Error(err))
+			logger.String("notification_id", n.ID),
+			logger.String("user_id", n.UserId),
+			logger.Error(err))
 		// Don't fail - notification is already saved
 	}
 
 	s.logger.Info("In-app notification sent and broadcast",
-		zap.String("notification_id", n.ID),
-		zap.String("user_id", n.UserId),
-		zap.String("subject", n.Subject))
+		logger.String("notification_id", n.ID),
+		logger.String("user_id", n.UserId),
+		logger.String("subject", n.Subject))
 
 	return nil
 }
@@ -101,37 +100,37 @@ func (s *InAppStrategy) buildWebSocketMessage(n entity.Notification) *entity.InA
 
 // determinePriority determines notification priority based on content
 func (s *InAppStrategy) determinePriority(n entity.Notification) string {
-	
+
 	// High priority keywords
 	highPriorityKeywords := []string{"urgent", "important", "critical", "action required"}
 	subjectLower := toLower(n.Subject)
 	bodyLower := toLower(n.Body)
-	
+
 	for _, keyword := range highPriorityKeywords {
 		if contains(subjectLower, keyword) || contains(bodyLower, keyword) {
 			return "high"
 		}
 	}
-	
+
 	return "normal"
 }
 
 // buildMetadata creates metadata for WebSocket message
 func (s *InAppStrategy) buildMetadata(n *entity.Notification) map[string]interface{} {
 	metadata := make(map[string]interface{})
-	
+
 	// Add timestamp info
 	metadata["created_timestamp"] = n.CreatedAt.Unix()
 	metadata["time_ago"] = s.getTimeAgo(n.CreatedAt)
-	
+
 	// Add notification type
 	metadata["category"] = s.categorizeNotification(n)
-	
+
 	// Add action hints
 	if actionURL := s.extractActionURL(n); actionURL != "" {
 		metadata["action_url"] = actionURL
 	}
-	
+
 	return metadata
 }
 
@@ -139,7 +138,7 @@ func (s *InAppStrategy) buildMetadata(n *entity.Notification) map[string]interfa
 func (s *InAppStrategy) categorizeNotification(n *entity.Notification) string {
 	subject := toLower(n.Subject)
 	body := toLower(n.Body)
-	
+
 	categories := map[string][]string{
 		"system":  {"system", "update", "maintenance"},
 		"account": {"account", "profile", "password", "security"},
@@ -147,7 +146,7 @@ func (s *InAppStrategy) categorizeNotification(n *entity.Notification) string {
 		"social":  {"comment", "like", "mention", "follow"},
 		"payment": {"payment", "subscription", "invoice", "billing"},
 	}
-	
+
 	for category, keywords := range categories {
 		for _, keyword := range keywords {
 			if contains(subject, keyword) || contains(body, keyword) {
@@ -155,20 +154,20 @@ func (s *InAppStrategy) categorizeNotification(n *entity.Notification) string {
 			}
 		}
 	}
-	
+
 	return "general"
 }
 
 // extractActionURL extracts action URL from notification body
 func (s *InAppStrategy) extractActionURL(n *entity.Notification) string {
-	
+
 	return ""
 }
 
 // getTimeAgo returns human-readable time difference
 func (s *InAppStrategy) getTimeAgo(t time.Time) string {
 	duration := time.Since(t)
-	
+
 	switch {
 	case duration < time.Minute:
 		return "just now"
