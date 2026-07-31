@@ -19,7 +19,7 @@ type Config struct {
 	// Server Ports
 	GRpcPort       string `envconfig:"GRPC_PORT" required:"true"`
 	WSPort         string `envconfig:"WS_PORT" required:"true"`
-	HealthPort     string `envconfig:"HEALTH_PORT"`
+	HttpPort     string `envconfig:"HTTP_PORT"`
 	PrometheusPort string `envconfig:"PROMETHEUS_PORT"`
 
 	// Database
@@ -54,8 +54,7 @@ type Config struct {
 	LogFile   string `envconfig:"LOG_FILE" default:""`
 
 	// Observability
-	LokiURL    string `envconfig:"LOKI_URL" default:"http://loki:3100"`
-	OTELP_ENDPOINT string `envconfig:"OTELP_ENDPOINT" default:"http://otel-collection:4317"`
+	OTLP_ENDPOINT string `envconfig:"OTLP_ENDPOINT" default:"http://otel-collection:4317"`
 }
 
 func LoadConfig() (*Config, error) {
