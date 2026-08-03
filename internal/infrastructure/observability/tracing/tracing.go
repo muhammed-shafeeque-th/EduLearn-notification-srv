@@ -10,8 +10,9 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
+
 	// "go.opentelemetry.io/otel/exporters/otlp/otlptrace"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -48,13 +49,15 @@ func NewTracer(config TracingConfig, logger ports.LoggerService) (*Tracer, error
 		return nil, fmt.Errorf("failed to connect OTEL Collector: %w", err)
 	}
 
-	exporter, err := otlptracegrpc.New(
+	exporter, err := otlptracehttp.New(
 		ctx,
-		otlptracegrpc.WithGRPCConn(conn),
+		otlptracehttp.WithEndpoint(config.CollectorEndpoint),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
+
+	_ = conn
 
 	res, err := resource.New(
 		context.Background(),

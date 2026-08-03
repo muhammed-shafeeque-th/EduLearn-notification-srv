@@ -57,9 +57,11 @@ func main() {
 		zap.String("version", cfg.ServiceVersion),
 		zap.String("environment", cfg.Environment))
 
+
 	healthChecker := health.NewHealthChecker(
 		container.DB,
 		container.Cache,
+		container.KafkaConsumer,
 		logger,
 		cfg.ServiceName,
 		cfg.ServiceVersion,

@@ -221,6 +221,20 @@ func (c *Consumer) Close() error {
 	return nil
 }
 
+// HealthCheck performs a readiness check for the Kafka consumer.
+// It returns nil if the consumer is healthy, or an error if unhealthy.
+func (c *Consumer) HealthCheck(ctx context.Context) error {
+	select {
+	case <-c.closeCh:
+		return errors.New("kafka consumer is closed")
+	case <-ctx.Done():
+		return fmt.Errorf("health check context cancelled: %w", ctx.Err())
+	default:
+		// Consumer is running
+		return nil
+	}
+}
+
 // ---------------------------------------------------------------------
 // Handler Adapter: Efficient worker pool, robust concurrency patterns
 // ---------------------------------------------------------------------

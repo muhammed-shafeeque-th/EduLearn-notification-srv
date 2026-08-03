@@ -11,6 +11,7 @@ import (
 
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
 	database "github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/database/gorm"
+	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/infrastructure/kafka"
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/pkg/logger"
 )
 
@@ -42,6 +43,7 @@ type HealthResponse struct {
 type HealthChecker struct {
 	db          *database.DB
 	redisClient ports.Cache
+	kafka       *kafka.Consumer
 	logger      ports.LoggerService
 	startTime   time.Time
 	serviceName string
@@ -49,10 +51,11 @@ type HealthChecker struct {
 	mu          sync.RWMutex
 }
 
-func NewHealthChecker(db *database.DB, redisClient ports.Cache, logger ports.LoggerService, serviceName, version string) *HealthChecker {
+func NewHealthChecker(db *database.DB, redisClient ports.Cache, kafka *kafka.Consumer, logger ports.LoggerService, serviceName, version string) *HealthChecker {
 	return &HealthChecker{
 		db:          db,
 		redisClient: redisClient,
+		kafka: kafka,
 		logger:      logger,
 		startTime:   time.Now(),
 		serviceName: serviceName,
@@ -134,6 +137,9 @@ func (h *HealthChecker) checkReadiness() map[string]HealthCheck {
 	// Redis connectivity check
 	checks["redis"] = h.checkRedis()
 
+	// Kafka connectivity check
+	checks["kafka"] = h.checkKafka()
+
 	// Memory usage check
 	checks["memory"] = h.checkMemory()
 
@@ -195,6 +201,34 @@ func (h *HealthChecker) checkRedis() HealthCheck {
 		Name:     "redis",
 		Status:   StatusHealthy,
 		Message:  "Redis connection successful",
+		Duration: duration.String(),
+	}
+}
+func (h *HealthChecker) checkKafka() HealthCheck {
+	start := time.Now()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err := h.kafka.HealthCheck(ctx)
+
+	duration := time.Since(start)
+
+	if err != nil {
+		h.logger.Error("Kafka health check failed", logger.Error(err))
+		return HealthCheck{
+			Name:     "kafka",
+			Status:   StatusUnhealthy,
+			Message:  "kafka connection failed",
+			Duration: duration.String(),
+			Error:    err.Error(),
+		}
+	}
+
+	return HealthCheck{
+		Name:     "kafka",
+		Status:   StatusHealthy,
+		Message:  "Kafka connection successful",
 		Duration: duration.String(),
 	}
 }
