@@ -3,6 +3,8 @@ package tracing
 import (
 	"context"
 	"fmt"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
@@ -20,6 +22,22 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
+
+func normalizeCollectorEndpoint(rawURL string) (string, error) {
+	// Prepend dummy scheme if missing so net/url parses host correctly
+	if !strings.Contains(rawURL, "://") {
+		rawURL = "http://" + rawURL
+	}
+
+	// Parse URL
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid URL: %w", err)
+	}
+
+	// Return only the Host field (contains host and port if present)
+	return parsed.Host, nil
+}
 
 type TracingConfig struct {
 	CollectorEndpoint string
@@ -49,9 +67,15 @@ func NewTracer(config TracingConfig, logger ports.LoggerService) (*Tracer, error
 		return nil, fmt.Errorf("failed to connect OTEL Collector: %w", err)
 	}
 
+	endpoint, err := normalizeCollectorEndpoint(config.CollectorEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("invalid OTEL Collector endpoint: %w", err)
+	}
+
 	exporter, err := otlptracehttp.New(
 		ctx,
-		otlptracehttp.WithEndpoint(config.CollectorEndpoint),
+		otlptracehttp.WithEndpoint(endpoint),
+		otlptracehttp.WithInsecure(),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
