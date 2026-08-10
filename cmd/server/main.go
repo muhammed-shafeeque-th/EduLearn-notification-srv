@@ -63,7 +63,7 @@ func main() {
 		container.Cache,
 		container.KafkaConsumer,
 		logger,
-		cfg.ServiceName,
+		cfg.ServiceName,	
 		cfg.ServiceVersion,
 	)
 	go func() {
