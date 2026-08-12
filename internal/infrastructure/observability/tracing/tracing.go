@@ -19,8 +19,6 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 )
 
 func normalizeCollectorEndpoint(rawURL string) (string, error) {
@@ -59,14 +57,6 @@ func NewTracer(config TracingConfig, logger ports.LoggerService) (*Tracer, error
 
 	ctx := context.Background()
 
-	conn, err := grpc.NewClient(
-		config.CollectorEndpoint,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect OTEL Collector: %w", err)
-	}
-
 	endpoint, err := normalizeCollectorEndpoint(config.CollectorEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("invalid OTEL Collector endpoint: %w", err)
@@ -81,7 +71,6 @@ func NewTracer(config TracingConfig, logger ports.LoggerService) (*Tracer, error
 		return nil, fmt.Errorf("failed to create OTLP exporter: %w", err)
 	}
 
-	_ = conn
 
 	res, err := resource.New(
 		context.Background(),
