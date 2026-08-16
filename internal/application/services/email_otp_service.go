@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/muhammed-shafeeque-th/EduLearn-notification-srv/internal/application/ports"
@@ -172,6 +173,7 @@ func (s *EmailOTPService) buildOTPEmailBody(username, code string, expiryInMinut
 
 	body, err := s.renderer.Render("activation-mail.html", map[string]string{
 		"USER_NAME":   username,
+		"LOGO_URL":   fmt.Sprintf("%s/logo.png", os.Getenv("APP_ASSETS_URL")),
 		"OTP_CODE":    code,
 		"EXPIRY_TIME": fmt.Sprintf("%d minutes", expiry),
 	})
